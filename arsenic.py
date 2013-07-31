@@ -75,7 +75,8 @@ class LogBot(irc.IRCClient):
             elif msg.startswith('add'):
                 name, response = msg[4:].split(' ', 1)
 
-                conn.execute('insert or replace into command(name, response) values (?, ?)',
+                conn.execute(('insert or replace into command(name, response) '
+                              'values (?, ?)'),
                              (name, response))
                 conn.commit()
                 self.notice(user, "You have successfully added the command!")
@@ -101,6 +102,14 @@ class LogBot(irc.IRCClient):
             for command in c:
                 commands.append("!" + str(command[0]))
             self.notice(user, ', '.join(commands))
+
+            # I'm so annoying about that 79-character limit...
+            about = ("My creator and overlord is TotempaaltJ. You can find "
+                     "him on http://totempaal.tj/.")
+            self.notice(user, about)
+            about = ("You can find me on "
+                     "https://github.com/TotempaaltJ/Arsenic")
+            self.notice(user, about)
 
             self.notice(user, "I usually follow the Three Laws of Robotics.")
             return
