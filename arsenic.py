@@ -32,6 +32,7 @@ class LogBot(irc.IRCClient):
     def privmsg(self, user, channel, msg):
         """This will get called when the bot receives a message."""
         user = user.split('!', 1)[0]
+        if user == 'Arsenic': return
 
         # Check to see if they're sending me a private message
         if channel == self.nickname:
