@@ -4,7 +4,7 @@ import sqlite3
 
 # twisted imports
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
 
 # system imports
@@ -14,7 +14,7 @@ import sys
 class LogBot(irc.IRCClient):
     """A logging IRC bot."""
 
-    nickname = 'Arsenic'
+    nickname = 'THE_KGB'
 
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
@@ -32,7 +32,7 @@ class LogBot(irc.IRCClient):
     def privmsg(self, user, channel, msg):
         """This will get called when the bot receives a message."""
         user = user.split('!', 1)[0]
-        if user == 'Arsenic': return
+        if user == 'THE_KGB': return
 
         # Check to see if they're sending me a private message
         if channel == self.nickname:
@@ -40,7 +40,7 @@ class LogBot(irc.IRCClient):
             # for that first:
             c = conn.execute('select * from op where username = ?',
                                 (user,))
-            if c.fetchone() is None and user != 'TotempaaltJ':
+            if c.fetchone() is None and user != 'Stqism':
                 return
 
             # Add someone to the op table
@@ -94,7 +94,7 @@ class LogBot(irc.IRCClient):
         res = ''
         # These are the actual #tox commands:
         if msg.startswith('!help'):
-            self.notice(user, "Hello, I'm Arsenic, the #tox bot!")
+            self.notice(user, "Hello, I'm THE_KGB,the new #tox bot!")
             self.notice(user, "I respond well to the following commands:")
 
             commands = []
@@ -104,14 +104,14 @@ class LogBot(irc.IRCClient):
             self.notice(user, ', '.join(commands))
 
             # I'm so annoying about that 79-character limit...
-            about = ("My creator and overlord is TotempaaltJ. You can find "
-                     "him on http://totempaal.tj/.")
+            about = ("Paid for with your tox dollars"
+                     "\nLove, stqism")
             self.notice(user, about)
             about = ("You can find me on "
-                     "https://github.com/TotempaaltJ/Arsenic")
+                     "https://github.com/stqism/THE_KGB")
             self.notice(user, about)
 
-            self.notice(user, "I usually follow the Three Laws of Robotics.")
+            self.notice(user, "I was designed to kill")
             return
 
         elif msg.startswith('!'):
@@ -169,7 +169,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # connect factory to this host and port
-    reactor.connectTCP("irc.freenode.net", 6667, f)
+    reactor.connectSSL("chat.freenode.net", 7000, f, ssl.ClientContextFactory())
 
     # run bot
     reactor.run()
