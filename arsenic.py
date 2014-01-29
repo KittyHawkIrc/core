@@ -28,11 +28,15 @@ class LogBot(irc.IRCClient):
     def signedOn(self):
         """Called when bot has succesfully signed on to server."""
         self.join(self.factory.channel)
-
+        self.join('#bitcoin-otc')
+        self.join('#tox-dev')
+        self.join('#tox-ontopic')
+        self.join('#tox-offtopic')
+        self.join('#unglinux')
     def privmsg(self, user, channel, msg):
         """This will get called when the bot receives a message."""
-        user = user.split('!', 1)[0]
-        if user == 'THE_KGB': return
+        user = user.split('^', 1)[0]
+        if user == nickname: return
 
         # Check to see if they're sending me a private message
         if channel == self.nickname:
@@ -40,7 +44,7 @@ class LogBot(irc.IRCClient):
             # for that first:
             c = conn.execute('select * from op where username = ?',
                                 (user,))
-            if c.fetchone() is None and user != 'Stqism':
+            if c.fetchone() is None and user != 'stqism':
                 return
 
             # Add someone to the op table
@@ -55,7 +59,7 @@ class LogBot(irc.IRCClient):
                 conn.commit()
                 self.notice(user, "You have successfully added {0} to op!"\
                                   .format(username))
-                self.notice(username, "You are my new boss!")
+                self.notice(username, "You're now a bot OP!")
 
             # Remove someone to the op table
             elif msg.startswith('deop'):
@@ -69,7 +73,7 @@ class LogBot(irc.IRCClient):
                 conn.commit()
                 self.notice(user, "You have successfully deleted {0} from op!"\
                                .format(username))
-                self.notice(username, "You are no longer my boss!")
+                self.notice(username, "Removed from the OP table")
 
             # Add a command
             elif msg.startswith('add'):
@@ -89,32 +93,32 @@ class LogBot(irc.IRCClient):
                              (name,))
                 conn.commit()
                 self.notice(user, "You have successfully deleted the command!")
+            elif msg.startswith('restart'):
+                args = sys.argv[:]
+                args.insert(0, sys.executable)
+                os.chdir(_startup_cwd)
+                os.execv(sys.executable, args)
             return
 
         res = ''
         # These are the actual #tox commands:
-        if msg.startswith('!help'):
-            self.notice(user, "Hello, I'm THE_KGB,the new #tox bot!")
-            self.notice(user, "I respond well to the following commands:")
-
+        if msg.startswith('^help'):
+            self.notice(user, "Howdy, I'm THE_KGB!")
+            self.notice(user, "My command character is ^")
+            self.notice(user, "My database knows the following:")
             commands = []
             c = conn.execute('select name from command')
             for command in c:
-                commands.append("!" + str(command[0]))
+                commands.append("^" + str(command[0]))
             self.notice(user, ', '.join(commands))
 
             # I'm so annoying about that 79-character limit...
-            about = ("Paid for with your tox dollars"
-                     "\nLove, stqism")
-            self.notice(user, about)
             about = ("You can find me on "
                      "https://github.com/stqism/THE_KGB")
             self.notice(user, about)
-
-            self.notice(user, "I was designed to kill")
             return
 
-        elif msg.startswith('!'):
+        elif msg.startswith('^'):
             command = msg[1:].split(' ', 1)[0]
             print command
             c = conn.execute('select response from command where name == ?',
@@ -162,10 +166,9 @@ if __name__ == '__main__':
 
     # create factory protocol and application
     try:
-        f = LogBotFactory(conn, '#' + sys.argv[1], sys.argv[2], sys.argv[3])
+        f = LogBotFactory(conn, '#tox', 'THE_KGB', sys.argv[1])
     except IndexError:
-        print 'Usage: arsenic.py channel username nickserpassword'
-        print 'Do not put a # in front of the channel name!'
+        print 'Usage: arsenic.py password'
         sys.exit(1)
 
     # connect factory to this host and port
