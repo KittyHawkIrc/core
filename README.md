@@ -1,13 +1,7 @@
-# Arsenic
+Almost complete rewrite of THE_KGB, but not a rushed POS of code shoved on top of other code.
 
-> Hello, I'm Arsenic, the #tox bot!  
-> I respond to commands people enter in there.  
-> My bosses can add commands.
-> I usually follow the Three Laws of Robotics too.  
+Features OSIRIS style modules and a minimal bloat free codebase.
 
-## Setup
 
-    sqlite3 arsenic.db < database.sql
-    ./arsenic.py <channel_name> <username> <nickserv_password>
 
-Don't put a hash in front of the channel name!
+It's still arsenic.py for throwback reasons.
