@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import imp
 import sqlite3
+import errno
 import ConfigParser
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
 
-cfile = open('kgb.conf', 'r')
+config_dir = ''
+
+cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r')
 config = ConfigParser.ConfigParser()
 config.readfp(cfile)
 cfile.close
@@ -18,14 +22,9 @@ oplist = config.get('main','op').split(',')
 modlook = {}
 modules = config.get('main','mod').split(',')
 
-for mod in modules:
-    mod_src = open('app/' + mod + '.py')
-    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
-    mod_src.close()
+class conf(Exception):
 
-    modlook[mod] = imp.new_module(mod)
-    sys.modules[mod] = modlook[mod]
-    exec mod_bytecode in modlook[mod].__dict__
+    """Automatically generated"""
 
 class LogBot(irc.IRCClient):
 
@@ -130,6 +129,16 @@ class LogBot(irc.IRCClient):
                     os.chdir(_startup_cwd)
                     os.execv(sys.executable, args)
 
+                elif msg.startswith('help'):
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'Howdy, %s, you silly operator.' % (u))
+                    self.msg(u, 'You have access to the following commands:')
+                    self.msg(u, 'add {command} {value}, del {command}')
+
+            else:
+                u = user.split('!',1)[0]
+                self.msg(u, 'I only accept commands from bot operators')
+
         elif msg.startswith('^'):
             command = msg[1:].split(' ', 1)[0]
 
@@ -138,8 +147,24 @@ class LogBot(irc.IRCClient):
                 
                 if osy['type'] == 'msg':
                     self.msg(osy['channel'],osy['data'])
-            else:
 
+            elif msg.startswith('^help'):
+                    u = user.split('!',1)[0]
+
+                    commands = []
+                    c = conn.execute('select name from command')
+                    for cmd in modules:
+                        commands.append("^" + cmd)
+
+                    for command in c:
+                        commands.append("^" + str(command[0]))
+
+                    self.msg(u, 'Howdy, %s' % (u))
+                    self.msg(u, 'You have access to the following commands:')
+
+                    self.msg(u, ', '.join(commands))
+
+            else:
                 c = conn.execute('select response from command where name == ?',(command,))
 
                 r = c.fetchone()
@@ -173,6 +198,29 @@ class LogBotFactory(protocol.ClientFactory):
 if __name__ == '__main__':
     conn = sqlite3.connect('arsenic.db')
     log.startLogging(sys.stdout)
+
+    try:
+        if sys.argv[1].startswith('--config='):
+            config_dir = sys.argv[1].split('=', 1)[1]
+            if config_dir == '':
+                raise conf('No path specified')
+            else:
+                if not os.path.isdir(config_dir):
+                    raise conf('config path not found')
+                    raise
+        else:
+            raise
+    except:
+        raise conf('arsenic takes a single argument, --config=/path/to/config/dir')
+
+    for mod in modules:
+        mod_src = open(config_dir + '/app/' + mod + '.py')
+        mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+        mod_src.close()
+
+        modlook[mod] = imp.new_module(mod)
+        sys.modules[mod] = modlook[mod]
+        exec mod_bytecode in modlook[mod].__dict__
 
     try:
         channel = config.get('main','channel').split(',')
