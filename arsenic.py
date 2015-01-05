@@ -169,7 +169,12 @@ class LogBot(irc.IRCClient):
 
                 r = c.fetchone()
                 if r is not None:
-                    self.msg(channel,str(r[0]))
+                    try:
+                        u = msg.split(' ')[1]
+                        self.msg(channel,"%s: %s" % (u,str(r[0])))
+
+                    except:
+                        self.msg(channel,str(r[0]))
 
 
 
