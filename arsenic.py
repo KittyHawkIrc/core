@@ -13,6 +13,8 @@ config = ConfigParser.ConfigParser()
 config.readfp(cfile)
 cfile.close
 
+oplist = config.get('main','op').split(',')
+
 modlook = {}
 modules = config.get('main','mod').split(',')
 
@@ -49,7 +51,84 @@ class LogBot(irc.IRCClient):
 
         if channel == self.nickname:
             #private commands
-            print "private command"
+
+            user_host = user.split('!',1)[1]
+
+            try:
+                c = conn.execute('select * from op where username = ?',(user_host,))
+            except:
+                c = None
+
+            if c != None:
+
+                if user_host in oplist:
+                    auth = 1
+
+                elif c.fetchone() is not None:
+                    auth = 1
+
+                else:
+                    auth = 0
+
+            else:
+                if user_host in oplist:
+                    auth = 1
+
+                else:
+                    auth = 0
+
+            if auth:
+                if msg.startswith('op'):
+
+                    host = msg.split(' ',1)[1]
+                    extname = host.split('!',1)[0]
+                    c = conn.execute('insert into op(username) values (?)',
+                                 (host.split('!',1)[1],))
+                    conn.commit()
+
+                    self.msg(user.split('!',1)[0],'Added user %s to the op list' % (extname))
+                    self.msg(extname, "You've been added to my op list")
+
+                elif msg.startswith('deop'):
+
+                    host = msg.split(' ',1)[1]
+                    extname = host.split('!',1)[0]
+                    c = conn.execute('delete from op where username = ?',
+                                 (host.split('!',1)[1],))
+                    conn.commit()
+
+                    self.msg(user.split('!',1)[0],'Removed user %s from the op list' % (extname))
+
+                elif msg.startswith('add'):
+
+                    cmd = msg.split(' ',2)[1]
+                    data= msg.split(' ',2)[2]
+
+                    print cmd
+                    print data
+
+                    conn.execute(('insert or replace into command(name, response) '
+                              'values (?, ?)'),
+                             (cmd, data))
+                    conn.commit()
+
+                    self.msg(user.split('!',1)[0],'Added the command %s with value %s' % (cmd, data))
+
+                elif msg.startswith('del'):
+
+                    cmd = msg.split(' ')[1]
+
+                    conn.execute('delete from command where name = ?',
+                             (cmd,))
+                    conn.commit()
+
+                    self.msg(user.split('!',1)[0],'Removed command %s' % (cmd))
+
+                elif msg.startswith('restart'):
+                    args = sys.argv[:]
+                    args.insert(0, sys.executable)
+                    os.chdir(_startup_cwd)
+                    os.execv(sys.executable, args)
 
         elif msg.startswith('^'):
             command = msg[1:].split(' ', 1)[0]
@@ -61,11 +140,11 @@ class LogBot(irc.IRCClient):
                     self.msg(osy['channel'],osy['data'])
             else:
 
-                c = conn.execute('select response from command where name == ?',
-                                 (command,))
+                c = conn.execute('select response from command where name == ?',(command,))
+
                 r = c.fetchone()
                 if r is not None:
-                    self.msg(str(r[0]))
+                    self.msg(channel,str(r[0]))
 
 
 
