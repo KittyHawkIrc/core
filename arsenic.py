@@ -9,6 +9,8 @@ import ConfigParser
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
+import cProfile, pstats, StringIO
+pr = cProfile.Profile()
 
 config_dir = ''
 
@@ -43,38 +45,44 @@ class LogBot(irc.IRCClient):
         for i in channel:
             self.join(i)
 
+    def kickedFrom(self, channel, kicker, message):
+        self.join(channel)
+        user = user.split('^', 1)[0]
+        self.kick(channel, user.split('!',1)[1], reason="How dare you kick a bot")
+
     def privmsg(self, user, channel, msg):
         user = user.split('^', 1)[0]
         if user == self.nickname: 
             return
 
-        if channel == self.nickname:
-            #private commands
+        user_host = user.split('!',1)[1]
 
-            user_host = user.split('!',1)[1]
+        try: #needed for non message op commands
+            c = conn.execute('select * from op where username = ?',(user_host,))
+        except:
+            c = None
 
-            try:
-                c = conn.execute('select * from op where username = ?',(user_host,))
-            except:
-                c = None
+        if c != None:
 
-            if c != None:
+            if user_host in oplist:
+                auth = 1
 
-                if user_host in oplist:
-                    auth = 1
-
-                elif c.fetchone() is not None:
-                    auth = 1
-
-                else:
-                    auth = 0
+            elif c.fetchone() is not None:
+                auth = 1
 
             else:
-                if user_host in oplist:
-                    auth = 1
+                auth = 0
 
-                else:
-                    auth = 0
+        else:
+            if user_host in oplist:
+                auth = 1
+
+            else:
+                auth = 0
+
+        if channel == self.nickname:
+            #private commands
+            self.msg('#THE_KGB', user + " said " + msg)
 
             if auth:
                 if msg.startswith('op'):
@@ -126,20 +134,99 @@ class LogBot(irc.IRCClient):
                 elif msg.startswith('restart'):
                     args = sys.argv[:]
                     args.insert(0, sys.executable)
-                    os.chdir(_startup_cwd)
+                    #os.chdir(_startup_cwd)
                     os.execv(sys.executable, args)
+
+                elif msg.startswith('join'):
+                    self.join(msg.split(' ')[1])
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'joined ' + msg.split(' ')[1])
+
+                elif msg.startswith('leave'):
+                    self.leave(msg.split(' ')[1])
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'left ' + msg.split(' ')[1])
+
+                elif msg.startswith('prof_on'):
+                    pr.enable()
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'profiling on')
+
+                elif msg.startswith('prof_off'):
+                    pr.disable()
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'profiling on')
+
+                elif msg.startswith('prof_stat'):
+                    u = user.split('!',1)[0]
+                    s = StringIO.StringIO()
+                    sortby = 'cumulative'
+                    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+                    ps.print_stats()
+                    self.msg(u, s.getvalue())
+
+                elif msg.startswith('nick'):
+                    self.setNick(msg.split(' ')[1])
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'now known as ' + msg.split(' ')[1])
+
+                elif msg.startswith('kick'):
+                    channel = msg.split(' ')[1]
+                    user = msg.split(' ')[2]
+                    self.kick(channel, user)
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'kicked ' + user)
+
+                elif msg.startswith('ban'):
+                    channel = msg.split(' ')[1]
+                    hostmask = msg.split(' ')[2]
+                    self.mode(channel ,True, 'b', mask=hostmask)
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'banned ' + hostmask)
+
+                elif msg.startswith('msg'):
+                    channel = msg.split(' ')[1]
+                    msg = msg.split(' ', 2)[2]
+                    self.msg(channel, msg)
+
+                elif msg.startswith('topic'):
+                    channel = msg.split(' ')[1]
+                    topic = msg.split(' ', 2)[2]
+                    self.topic(channel, topic=topic)
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'topic set to ' + topic)
+
+                elif msg.startswith('unban'):
+                    channel = msg.split(' ')[1]
+                    hostmask = msg.split(' ')[2]
+                    self.mode(channel ,False , 'b', mask=hostmask)
+
+                    u = user.split('!',1)[0]
+                    self.msg(u, 'unbanned ' + hostmask)
 
                 elif msg.startswith('help'):
                     u = user.split('!',1)[0]
                     self.msg(u, 'Howdy, %s, you silly operator.' % (u))
                     self.msg(u, 'You have access to the following commands:')
                     self.msg(u, 'add {command} {value}, del {command}')
+                    self.msg(u, 'join {channel}, leave {channel}')
+                    self.msg(u, 'nick {nickname}, kick {channel} {name}')
+                    self.msg(u, 'ban/unban {channel} {hostmask}')
+                    self.msg(u, 'msg {channel} {message}, topic {channel} {topic}')
 
             else:
                 u = user.split('!',1)[0]
                 self.msg(u, 'I only accept commands from bot operators')
 
+
         elif msg.startswith('^'):
+
             command = msg[1:].split(' ', 1)[0]
 
             if command in modlook:
@@ -175,8 +262,6 @@ class LogBot(irc.IRCClient):
 
                     except:
                         self.msg(channel,str(r[0]))
-
-
 
 class LogBotFactory(protocol.ClientFactory):
 
