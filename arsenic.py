@@ -25,7 +25,7 @@ modlook = {}
 modules = config.get('main','mod').split(',')
 
 class conf(Exception):
-c
+
     """Automatically generated"""
 
 class LogBot(irc.IRCClient):
@@ -323,3 +323,5 @@ if __name__ == '__main__':
         sys.exit(1)
 
     reactor.connectSSL(config.get('network', 'hostname'), int(config.get('network', 'port')), f, ssl.ClientContextFactory())
+
+    reactor.run()
