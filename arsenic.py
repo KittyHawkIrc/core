@@ -10,6 +10,7 @@ from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
 import cProfile, pstats, StringIO
+
 pr = cProfile.Profile()
 
 config_dir = ''
@@ -33,6 +34,19 @@ try:
     irc_relay = config.get('main','log')
 except:
     print "no relay log channel"
+
+db_name = ""
+
+try:
+    db_name = config.get('main','db')
+except:
+    db_name = ""
+
+if os.path.isfile(db_name) == False:
+    print "##########   No database found!   ##########"
+    raise SystemExit(0)
+else:
+    print db_name
 
 class conf(Exception):
 
@@ -98,12 +112,13 @@ class LogBot(irc.IRCClient):
 
 #Start module execution
 
-        command = msg.split(' ', 1)[0]
+        command = msg.split(' ', 1)[0].lower()
 
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
                 modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg=msg, user=user, channel=channel)
+                self.msg("coup_de_shitlord", "done")
 
             #private commands
             if irc_relay != "":
@@ -133,7 +148,7 @@ class LogBot(irc.IRCClient):
 
                 elif msg.startswith('add'):
 
-                    cmd = msg.split(' ',2)[1]
+                    cmd = msg.split(' ',2)[1].lower()
                     data= msg.split(' ',2)[2]
 
                     conn.execute(('insert or replace into command(name, response) '
@@ -145,7 +160,7 @@ class LogBot(irc.IRCClient):
 
                 elif msg.startswith('del'):
 
-                    cmd = msg.split(' ')[1]
+                    cmd = msg.split(' ')[1].lower()
 
                     conn.execute('delete from command where name = ?',
                              (cmd,))
@@ -230,7 +245,7 @@ class LogBot(irc.IRCClient):
 
 
         elif msg.startswith('^'):
-            command
+
             if command[1:] in mod_declare_privmsg:
                 modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, command[1:], msg, user, channel)
 
@@ -286,7 +301,7 @@ class LogBotFactory(protocol.ClientFactory):
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect('arsenic.db')
+    conn = sqlite3.connect(db_name)
     log.startLogging(sys.stdout)
 
     try:
