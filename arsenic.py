@@ -6,7 +6,6 @@ import imp
 import sqlite3
 import errno
 import ConfigParser
-import inspect
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
