@@ -81,7 +81,7 @@ class LogBot(irc.IRCClient):
 
     def userJoined(self, user, channel):
         for command in mod_declare_userjoin:
-            modlook[mod_declare_userjoin[command]].callback(self, "userjoin", False, user, channel)
+            modlook[mod_declare_userjoin[command]].callback(self, "userjoin", False, user=user, channel=channel)
 
     def privmsg(self, user, channel, msg):
         user = user.split('^', 1)[0]
@@ -230,7 +230,7 @@ class LogBot(irc.IRCClient):
             if command[1:] in mod_declare_privmsg:
                 modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, command[1:], msg, user, channel)
 
-            if msg.startswith('^help'):
+            elif msg.startswith('^help'):
                     u = user.split('!',1)[0]
 
                     commands = []
@@ -247,6 +247,7 @@ class LogBot(irc.IRCClient):
                     self.msg(u, ', '.join(commands))
 
             else:
+                command = command[1:]
                 c = conn.execute('select response from command where name == ?',(command,))
 
                 r = c.fetchone()
