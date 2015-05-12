@@ -6,6 +6,7 @@ import imp
 import sqlite3
 import errno
 import ConfigParser
+import inspect
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
@@ -89,7 +90,7 @@ class LogBot(irc.IRCClient):
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, msg, user, channel)
+                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", command, auth, msg, user, channel)
 
             #private commands
             self.msg('#THE_KGB', user + " said " + msg)
@@ -141,24 +142,6 @@ class LogBot(irc.IRCClient):
 
                     self.msg(user.split('!',1)[0],'Removed command %s' % (cmd))
 
-                elif msg.startswith('restart'):
-                    args = sys.argv[:]
-                    args.insert(0, sys.executable)
-                    #os.chdir(_startup_cwd)
-                    os.execv(sys.executable, args)
-
-                elif msg.startswith('join'):
-                    self.join(msg.split(' ')[1])
-
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'joined ' + msg.split(' ')[1])
-
-                elif msg.startswith('leave'):
-                    self.leave(msg.split(' ')[1])
-
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'left ' + msg.split(' ')[1])
-
                 elif msg.startswith('prof_on'):
                     pr.enable()
                     u = user.split('!',1)[0]
@@ -177,52 +160,40 @@ class LogBot(irc.IRCClient):
                     ps.print_stats()
                     self.msg(u, s.getvalue())
 
-                elif msg.startswith('nick'):
-                    self.setNick(msg.split(' ')[1])
+                elif msg.startswith('mod_reload'):
+                    mod_raw = msg.split(' ')[1]
 
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'now known as ' + msg.split(' ')[1])
+                    mod_src = open(config_dir + '/app/' + mod + '.py')
+                    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+                    mod_src.close()
 
-                elif msg.startswith('kick'):
-                    channel = msg.split(' ')[1]
-                    user = msg.split(' ')[2]
-                    try:
-                        reason = msg.split(' ', 3)[3]
-                        self.kick(channel, user, reason=reason)
-                    except:
-                        self.kick(channel, user)
+                    exec mod_bytecode in modlook[mod].__dict__
 
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'kicked ' + user)
+                    declare_table = modlook[mod].declare()
 
-                elif msg.startswith('ban'):
-                    channel = msg.split(' ')[1]
-                    hostmask = msg.split(' ')[2]
-                    self.mode(channel ,True, 'b', mask=hostmask)
+                    for i in declare_table:
 
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'banned ' + hostmask)
+                        if declare_table[i] == 'privmsg':
+                            mod_declare_privmsg[i] = mod
 
-                elif msg.startswith('msg'):
-                    channel = msg.split(' ')[1]
-                    msg = msg.split(' ', 2)[2]
-                    self.msg(channel, msg)
+                elif msg.startswith('mod_load'):
+                    mod_raw = msg.split(' ')[1]
 
-                elif msg.startswith('topic'):
-                    channel = msg.split(' ')[1]
-                    topic = msg.split(' ', 2)[2]
-                    self.topic(channel, topic=topic)
+                    mod_src = open(config_dir + '/app/' + mod + '.py')
+                    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
 
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'topic set to ' + topic)
+                    modlook[mod] = imp.new_module(mod)
+                    sys.modules[mod] = modlook[mod]
 
-                elif msg.startswith('unban'):
-                    channel = msg.split(' ')[1]
-                    hostmask = msg.split(' ')[2]
-                    self.mode(channel ,False , 'b', mask=hostmask)
+                    exec mod_bytecode in modlook[mod].__dict__
 
-                    u = user.split('!',1)[0]
-                    self.msg(u, 'unbanned ' + hostmask)
+                    declare_table = modlook[mod].declare()
+
+                    for i in declare_table:
+
+                        if declare_table[i] == 'privmsg':
+                            mod_declare_privmsg[i] = mod
+
 
                 elif msg.startswith('help'):
                     u = user.split('!',1)[0]
@@ -242,7 +213,7 @@ class LogBot(irc.IRCClient):
         elif msg.startswith('^'):
             command
             if command[1:] in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, msg, user, channel)
+                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", command[1:], auth, msg, user, channel)
 
             if msg.startswith('^help'):
                     u = user.split('!',1)[0]
@@ -322,11 +293,11 @@ if __name__ == '__main__':
         exec mod_bytecode in modlook[mod].__dict__
         
         declare_table = modlook[mod].declare()
+
         for i in declare_table:
 
-            if i == 'privmsg':
-                mod_declare_privmsg[declare_table[i]] = mod
-
+            if declare_table[i] == 'privmsg':
+                mod_declare_privmsg[i] = mod
 
     try:
         channel = config.get('main','channel').split(',')
