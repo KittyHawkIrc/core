@@ -25,6 +25,7 @@ modlook = {}
 modules = config.get('main','mod').split(',')
 
 mod_declare_privmsg = {}
+mod_declare_userjoin = {}
 
 class conf(Exception):
 
@@ -33,6 +34,32 @@ class conf(Exception):
 class LogBot(irc.IRCClient):
 
     nickname = config.get('main','name')
+
+    def isauth(self, user):
+        user_host = user.split('!',1)[1]
+
+        try: #needed for non message op commands
+            c = conn.execute('select * from op where username = ?',(user_host,))
+        except:
+            c = None
+
+        if c != None:
+
+            if user_host in oplist:
+                return True
+
+            elif c.fetchone() is not None:
+                return True
+
+            else:
+                return False
+
+        else:
+            if user_host in oplist:
+                return True
+
+            else:
+                return False
 
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
@@ -52,35 +79,16 @@ class LogBot(irc.IRCClient):
         user = user.split('^', 1)[0]
         self.kick(channel, user.split('!',1)[1], reason="How dare you kick a bot")
 
+    def userJoined(self, user, channel):
+        for command in mod_declare_userjoin:
+            modlook[mod_declare_userjoin[command]].callback(self, "userjoin", False, user, channel)
+
     def privmsg(self, user, channel, msg):
         user = user.split('^', 1)[0]
         if user == self.nickname: 
             return
 
-        user_host = user.split('!',1)[1]
-
-        try: #needed for non message op commands
-            c = conn.execute('select * from op where username = ?',(user_host,))
-        except:
-            c = None
-
-        if c != None:
-
-            if user_host in oplist:
-                auth = True
-
-            elif c.fetchone() is not None:
-                auth = True
-
-            else:
-                auth = False
-
-        else:
-            if user_host in oplist:
-                auth = True
-
-            else:
-                auth = False
+        auth = self.isauth(user)
 
 #Start module execution
 
@@ -89,7 +97,7 @@ class LogBot(irc.IRCClient):
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", command, auth, msg, user, channel)
+                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg, user, channel)
 
             #private commands
             self.msg('#THE_KGB', user + " said " + msg)
@@ -171,9 +179,13 @@ class LogBot(irc.IRCClient):
                     declare_table = modlook[mod].declare()
 
                     for i in declare_table:
+                        cmd_check = declare_table[i]
 
-                        if declare_table[i] == 'privmsg':
+                        if cmd_check == 'privmsg':
                             mod_declare_privmsg[i] = mod
+
+                        elif cmd_check == 'userjoin':
+                            mod_declare_userjoin[i] = mod
 
                 elif msg.startswith('mod_load'):
                     mod_raw = msg.split(' ')[1]
@@ -189,9 +201,13 @@ class LogBot(irc.IRCClient):
                     declare_table = modlook[mod].declare()
 
                     for i in declare_table:
+                        cmd_check = declare_table[i]
 
-                        if declare_table[i] == 'privmsg':
+                        if cmd_check == 'privmsg':
                             mod_declare_privmsg[i] = mod
+
+                        elif cmd_check == 'userjoin':
+                            mod_declare_userjoin[i] = mod
 
 
                 elif msg.startswith('help'):
@@ -212,7 +228,7 @@ class LogBot(irc.IRCClient):
         elif msg.startswith('^'):
             command
             if command[1:] in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", command[1:], auth, msg, user, channel)
+                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, command[1:], msg, user, channel)
 
             if msg.startswith('^help'):
                     u = user.split('!',1)[0]
@@ -294,9 +310,13 @@ if __name__ == '__main__':
         declare_table = modlook[mod].declare()
 
         for i in declare_table:
+            cmd_check = declare_table[i]
 
-            if declare_table[i] == 'privmsg':
+            if cmd_check == 'privmsg':
                 mod_declare_privmsg[i] = mod
+
+            elif cmd_check == 'userjoin':
+                mod_declare_userjoin[i] = mod
 
     try:
         channel = config.get('main','channel').split(',')
