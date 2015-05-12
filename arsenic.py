@@ -97,7 +97,7 @@ class LogBot(irc.IRCClient):
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg, user, channel)
+                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg=msg, user=user, channel=channel)
 
             #private commands
             self.msg('#THE_KGB', user + " said " + msg)
