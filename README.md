@@ -5,3 +5,10 @@ Features OSIRIS style modules and a minimal bloat free codebase.
 
 
 It's still arsenic.py for throwback reasons.
+
+
+to setup:
+```sqlite3 arsenic.db < database.sql```
+
+to run:
+```python arsenic.py --config=.```
