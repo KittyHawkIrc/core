@@ -9,7 +9,6 @@ import ConfigParser
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
 from twisted.python import log
-from greenlet import greenlet
 import cProfile, pstats, StringIO
 
 pr = cProfile.Profile()
@@ -35,6 +34,19 @@ try:
     irc_relay = config.get('main','log')
 except:
     print "no relay log channel"
+
+db_name = ""
+
+try:
+    db_name = config.get('main','db')
+except:
+    db_name = ""
+
+if os.path.isfile(db_name) == False:
+    print "##########   No database found!   ##########"
+    raise SystemExit(0)
+else:
+    print db_name
 
 class conf(Exception):
 
@@ -105,8 +117,7 @@ class LogBot(irc.IRCClient):
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
-                do = greenlet(modlook[mod_declare_privmsg[command]].callback)
-                do.join(self, "privmsg", auth, command, msg=msg, user=user, channel=channel)
+                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg=msg, user=user, channel=channel)
                 self.msg("coup_de_shitlord", "done")
 
             #private commands
@@ -234,7 +245,7 @@ class LogBot(irc.IRCClient):
 
 
         elif msg.startswith('^'):
-            
+
             if command[1:] in mod_declare_privmsg:
                 modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, command[1:], msg, user, channel)
 
@@ -290,7 +301,7 @@ class LogBotFactory(protocol.ClientFactory):
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect('arsenic.db')
+    conn = sqlite3.connect(db_name)
     log.startLogging(sys.stdout)
 
     try:
