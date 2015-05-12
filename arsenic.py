@@ -24,6 +24,8 @@ oplist = config.get('main','op').split(',')
 modlook = {}
 modules = config.get('main','mod').split(',')
 
+mod_declare_privmsg = {}
+
 class conf(Exception):
 
     """Automatically generated"""
@@ -65,22 +67,30 @@ class LogBot(irc.IRCClient):
         if c != None:
 
             if user_host in oplist:
-                auth = 1
+                auth = True
 
             elif c.fetchone() is not None:
-                auth = 1
+                auth = True
 
             else:
-                auth = 0
+                auth = False
 
         else:
             if user_host in oplist:
-                auth = 1
+                auth = True
 
             else:
-                auth = 0
+                auth = False
+
+#Start module execution
+
+        command = msg.split(' ', 1)[0]
 
         if channel == self.nickname:
+
+            if command in mod_declare_privmsg:
+                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, msg, user, channel)
+
             #private commands
             self.msg('#THE_KGB', user + " said " + msg)
 
@@ -230,16 +240,11 @@ class LogBot(irc.IRCClient):
 
 
         elif msg.startswith('^'):
+            command
+            if command[1:] in mod_declare_privmsg:
+                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, msg, user, channel)
 
-            command = msg[1:].split(' ', 1)[0]
-
-            if command in modlook:
-                osy = modlook[command].reply(msg, user, channel)
-                
-                if osy['type'] == 'msg':
-                    self.msg(osy['channel'],osy['data'])
-
-            elif msg.startswith('^help'):
+            if msg.startswith('^help'):
                     u = user.split('!',1)[0]
 
                     commands = []
@@ -315,6 +320,13 @@ if __name__ == '__main__':
         modlook[mod] = imp.new_module(mod)
         sys.modules[mod] = modlook[mod]
         exec mod_bytecode in modlook[mod].__dict__
+        
+        declare_table = modlook[mod].declare()
+        for i in declare_table:
+
+            if i == 'privmsg':
+                mod_declare_privmsg[declare_table[i]] = mod
+
 
     try:
         channel = config.get('main','channel').split(',')
