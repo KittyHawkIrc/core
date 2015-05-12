@@ -4,9 +4,8 @@ def declare():
 def callback(self, type, isop, command="", msg="", user="", channel="", mode=""):
 
     if channel.startswith('#'):
-        username = user.split('!',1)[0]
 
         if isop:
-            self.msg(channel, "And a hello to you too, operator %s!" % (username))
+            self.msg(channel, "And a hello to you too, operator %s!" % (user))
         else:
-            self.msg(channel, "And a hello to you too, %s!" % (username))
+            self.msg(channel, "And a hello to you too, %s!" % (user))
