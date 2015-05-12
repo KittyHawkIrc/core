@@ -3,11 +3,13 @@ import sys, os
 def declare():
     return {"restart": "privmsg", "join": "privmsg", "leave": "privmsg", "nick": "privmsg", "kick": "privmsg", "ban": "privmsg", "unban": "privmsg", "msg": "privmsg", "topic": "privmsg"}
 
-def callback(self, type, command, isop, msg="", user="", channel="", mode=""):
+def callback(self, type, isop, command="", msg="", user="", channel="", mode=""):
 
     if isop == False:
+        username = user.split('!')[0]
+        self.msg(username, 'I only accept commands from bot operators')
         return
-        
+
     if channel.startswith('#') == False:
         username = user.split('!',1)[0]
 
