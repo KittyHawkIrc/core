@@ -25,7 +25,7 @@ modlook = {}
 modules = config.get('main','mod').split(',')
 
 class conf(Exception):
-
+c
     """Automatically generated"""
 
 class LogBot(irc.IRCClient):
@@ -176,7 +176,11 @@ class LogBot(irc.IRCClient):
                 elif msg.startswith('kick'):
                     channel = msg.split(' ')[1]
                     user = msg.split(' ')[2]
-                    self.kick(channel, user)
+                    try:
+                        reason = msg.split(' ', 3)[3]
+                        self.kick(channel, user, reason=reason)
+                    except:
+                        self.kick(channel, user)
 
                     u = user.split('!',1)[0]
                     self.msg(u, 'kicked ' + user)
@@ -216,7 +220,7 @@ class LogBot(irc.IRCClient):
                     self.msg(u, 'You have access to the following commands:')
                     self.msg(u, 'add {command} {value}, del {command}')
                     self.msg(u, 'join {channel}, leave {channel}')
-                    self.msg(u, 'nick {nickname}, kick {channel} {name}')
+                    self.msg(u, 'nick {nickname}, kick {channel} {name} {optional reason}')
                     self.msg(u, 'ban/unban {channel} {hostmask}')
                     self.msg(u, 'msg {channel} {message}, topic {channel} {topic}')
 
@@ -319,5 +323,3 @@ if __name__ == '__main__':
         sys.exit(1)
 
     reactor.connectSSL(config.get('network', 'hostname'), int(config.get('network', 'port')), f, ssl.ClientContextFactory())
-
-    reactor.run()
