@@ -19,13 +19,20 @@ config = ConfigParser.ConfigParser()
 config.readfp(cfile)
 cfile.close
 
-oplist = config.get('main','op').split(',')
+oplist = config.get('main','op').translate(None, " ").split(',')
 
 modlook = {}
-modules = config.get('main','mod').split(',')
+modules = config.get('main','mod').translate(None, " ").split(',')
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
+
+irc_relay = ""
+
+try:
+    irc_relay = config.get('main','log')
+except:
+    print "no relay log channel"
 
 class conf(Exception):
 
@@ -34,6 +41,7 @@ class conf(Exception):
 class LogBot(irc.IRCClient):
 
     nickname = config.get('main','name')
+
 
     def isauth(self, user):
         user_host = user.split('!',1)[1]
@@ -74,10 +82,8 @@ class LogBot(irc.IRCClient):
         for i in channel:
             self.join(i)
 
-    def kickedFrom(self, channel, kicker, message):
+    def kickedFrom(self, channel, user, message):
         self.join(channel)
-        user = user.split('^', 1)[0]
-        self.kick(channel, user.split('!',1)[1], reason="How dare you kick a bot")
 
     def userJoined(self, user, channel):
         for command in mod_declare_userjoin:
@@ -100,7 +106,8 @@ class LogBot(irc.IRCClient):
                 modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg=msg, user=user, channel=channel)
 
             #private commands
-            self.msg('#THE_KGB', user + " said " + msg)
+            if irc_relay != "":
+                self.msg(irc_relay, user + " said " + msg)
 
             if auth:
                 if msg.startswith('op'):
@@ -128,9 +135,6 @@ class LogBot(irc.IRCClient):
 
                     cmd = msg.split(' ',2)[1]
                     data= msg.split(' ',2)[2]
-
-                    print cmd
-                    print data
 
                     conn.execute(('insert or replace into command(name, response) '
                               'values (?, ?)'),
@@ -320,7 +324,8 @@ if __name__ == '__main__':
                 mod_declare_userjoin[i] = mod
 
     try:
-        channel = config.get('main','channel').split(',')
+        channel = config.get('main','channel').translate(None, " ").split(',')
+
         f = LogBotFactory(conn, channel[0],config.get('main', 'name'), config.get('main','password'))
     except IndexError:
         sys.exit(1)
