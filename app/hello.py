@@ -1,7 +1,7 @@
 def declare():
-    return {"privmsg": "hello"}
+    return {"hello": "privmsg"}
 
-def callback(self, type, isop, msg="", user="", channel="", mode=""):
+def callback(self, type, command, isop, msg="", user="", channel="", mode=""):
 
     if channel.startswith('#'):
         username = user.split('!',1)[0]
