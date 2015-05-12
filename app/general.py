@@ -1,4 +1,4 @@
-import sys
+import sys, os
 
 def declare():
     return {"restart": "privmsg", "join": "privmsg", "leave": "privmsg", "nick": "privmsg", "kick": "privmsg", "ban": "privmsg", "unban": "privmsg", "msg": "privmsg", "topic": "privmsg"}
