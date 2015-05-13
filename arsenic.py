@@ -411,7 +411,7 @@ if __name__ == '__main__':
         f = LogBotFactory(conn, channel[0], config.get('main', 'name'),
                           config.get('main', 'password'))
     except IndexError:
-        sys.exit(1)
+        raise SystemExit(0)
 
     reactor.connectSSL(
         config.get(
