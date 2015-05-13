@@ -1,10 +1,20 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# pylint: disable=C0103
+# pylint: disable=W0702
+# pylint: disable=R0912
+# pylint: disable=R0915
+# pylint: disable=R0914
+
+"""Arsenic development
+
+This is WIP code under active development.
+
+"""
 
 import os
 import sys
 import imp
 import sqlite3
-import errno
 import ConfigParser
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
@@ -18,12 +28,12 @@ config_dir = ''
 cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r')
 config = ConfigParser.ConfigParser()
 config.readfp(cfile)
-cfile.close
+cfile.close()
 
-oplist = config.get('main','op').translate(None, " ").split(',')
+oplist = config.get('main', 'op').translate(None, " ").split(',')
 
 modlook = {}
-modules = config.get('main','mod').translate(None, " ").split(',')
+modules = config.get('main', 'mod').translate(None, " ").split(',')
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
@@ -31,14 +41,14 @@ mod_declare_userjoin = {}
 irc_relay = ""
 
 try:
-    irc_relay = config.get('main','log')
+    irc_relay = config.get('main', 'log')
 except:
     print "no relay log channel"
 
 db_name = ""
 
 try:
-    db_name = config.get('main','db')
+    db_name = config.get('main', 'db')
 except:
     db_name = ""
 
@@ -54,14 +64,22 @@ class conf(Exception):
 
 class LogBot(irc.IRCClient):
 
-    nickname = config.get('main','name')
+    """Twisted callbacks registered here"""
+
+    def __init__(self):
+        return
+
+    nickname = config.get('main', 'name')
 
 
     def isauth(self, user):
-        user_host = user.split('!',1)[1]
+
+        """Checks if hostmask is bot op"""
+
+        user_host = user.split('!', 1)[1]
 
         try: #needed for non message op commands
-            c = conn.execute('select * from op where username = ?',(user_host,))
+            c = conn.execute('select * from op where username = ?', (user_host,))
         except:
             c = None
 
@@ -98,14 +116,16 @@ class LogBot(irc.IRCClient):
 
     def kickedFrom(self, channel, user, message):
         self.join(channel)
+        del user
 
-    def userJoined(self, user, channel):
+    def userJoined(self, cbuser, cbchannel):
         for command in mod_declare_userjoin:
-            modlook[mod_declare_userjoin[command]].callback(self, "userjoin", False, user=user, channel=channel)
+            modlook[mod_declare_userjoin[command]].callback(self, "userjoin", False,
+                                                            user=cbuser, channel=cbchannel)
 
     def privmsg(self, user, channel, msg):
         user = user.split('^', 1)[0]
-        if user == self.nickname: 
+        if user == self.nickname:
             return
 
         auth = self.isauth(user)
@@ -117,7 +137,9 @@ class LogBot(irc.IRCClient):
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command, msg=msg, user=user, channel=channel)
+                modlook[mod_declare_privmsg[command]].callback(self, "privmsg", auth, command,
+                                                               msg=msg, user=user, channel=channel)
+
                 self.msg("coup_de_shitlord", "done")
 
             #private commands
@@ -127,59 +149,59 @@ class LogBot(irc.IRCClient):
             if auth:
                 if msg.startswith('op'):
 
-                    host = msg.split(' ',1)[1]
-                    extname = host.split('!',1)[0]
+                    host = msg.split(' ', 1)[1]
+                    extname = host.split('!', 1)[0]
                     c = conn.execute('insert into op(username) values (?)',
-                                 (host.split('!',1)[1],))
+                                     (host.split('!', 1)[1],))
                     conn.commit()
 
-                    self.msg(user.split('!',1)[0],'Added user %s to the op list' % (extname))
+                    self.msg(user.split('!', 1)[0], 'Added user %s to the op list' % (extname))
                     self.msg(extname, "You've been added to my op list")
 
                 elif msg.startswith('deop'):
 
-                    host = msg.split(' ',1)[1]
-                    extname = host.split('!',1)[0]
+                    host = msg.split(' ', 1)[1]
+                    extname = host.split('!', 1)[0]
                     c = conn.execute('delete from op where username = ?',
-                                 (host.split('!',1)[1],))
+                                     (host.split('!', 1)[1],))
                     conn.commit()
 
-                    self.msg(user.split('!',1)[0],'Removed user %s from the op list' % (extname))
+                    self.msg(user.split('!', 1)[0], 'Removed user %s from the op list' % (extname))
 
                 elif msg.startswith('add'):
 
-                    cmd = msg.split(' ',2)[1].lower()
-                    data= msg.split(' ',2)[2]
+                    cmd = msg.split(' ', 2)[1].lower()
+                    data = msg.split(' ', 2)[2]
 
                     conn.execute(('insert or replace into command(name, response) '
-                              'values (?, ?)'),
-                             (cmd, data))
+                                  'values (?, ?)'), (cmd, data))
                     conn.commit()
 
-                    self.msg(user.split('!',1)[0],'Added the command %s with value %s' % (cmd, data))
+                    self.msg(user.split('!', 1)[0], 'Added the command %s with value %s' %
+                             (cmd, data))
 
                 elif msg.startswith('del'):
 
                     cmd = msg.split(' ')[1].lower()
 
                     conn.execute('delete from command where name = ?',
-                             (cmd,))
+                                 (cmd,))
                     conn.commit()
 
-                    self.msg(user.split('!',1)[0],'Removed command %s' % (cmd))
+                    self.msg(user.split('!', 1)[0], 'Removed command %s' % (cmd))
 
                 elif msg.startswith('prof_on'):
                     pr.enable()
-                    u = user.split('!',1)[0]
+                    u = user.split('!', 1)[0]
                     self.msg(u, 'profiling on')
 
                 elif msg.startswith('prof_off'):
                     pr.disable()
-                    u = user.split('!',1)[0]
+                    u = user.split('!', 1)[0]
                     self.msg(u, 'profiling on')
 
                 elif msg.startswith('prof_stat'):
-                    u = user.split('!',1)[0]
+                    u = user.split('!', 1)[0]
                     s = StringIO.StringIO()
                     sortby = 'cumulative'
                     ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
@@ -187,7 +209,7 @@ class LogBot(irc.IRCClient):
                     self.msg(u, s.getvalue())
 
                 elif msg.startswith('mod_reload'):
-                    mod_raw = msg.split(' ')[1]
+                    mod = msg.split(' ')[1]
 
                     mod_src = open(config_dir + '/app/' + mod + '.py')
                     mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
@@ -207,7 +229,7 @@ class LogBot(irc.IRCClient):
                             mod_declare_userjoin[i] = mod
 
                 elif msg.startswith('mod_load'):
-                    mod_raw = msg.split(' ')[1]
+                    mod = msg.split(' ')[1]
 
                     mod_src = open(config_dir + '/app/' + mod + '.py')
                     mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
@@ -230,7 +252,7 @@ class LogBot(irc.IRCClient):
 
 
                 elif msg.startswith('help'):
-                    u = user.split('!',1)[0]
+                    u = user.split('!', 1)[0]
                     self.msg(u, 'Howdy, %s, you silly operator.' % (u))
                     self.msg(u, 'You have access to the following commands:')
                     self.msg(u, 'add {command} {value}, del {command}')
@@ -240,45 +262,48 @@ class LogBot(irc.IRCClient):
                     self.msg(u, 'msg {channel} {message}, topic {channel} {topic}')
 
             else:
-                u = user.split('!',1)[0]
+                u = user.split('!', 1)[0]
                 self.msg(u, 'I only accept commands from bot operators')
 
 
         elif msg.startswith('^'):
 
             if command[1:] in mod_declare_privmsg:
-                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth, command[1:], msg, user, channel)
+                modlook[mod_declare_privmsg[command[1:]]].callback(self, "privmsg", auth,
+                                                                   command[1:], msg, user, channel)
 
             elif msg.startswith('^help'):
-                    u = user.split('!',1)[0]
+                u = user.split('!', 1)[0]
 
-                    commands = []
-                    c = conn.execute('select name from command')
-                    for cmd in modules:
-                        commands.append("^" + cmd)
+                commands = []
+                c = conn.execute('select name from command')
+                for cmd in modules:
+                    commands.append("^" + cmd)
 
-                    for command in c:
-                        commands.append("^" + str(command[0]))
+                for command in c:
+                    commands.append("^" + str(command[0]))
 
-                    self.msg(u, 'Howdy, %s' % (u))
-                    self.msg(u, 'You have access to the following commands:')
+                self.msg(u, 'Howdy, %s' % (u))
+                self.msg(u, 'You have access to the following commands:')
 
-                    self.msg(u, ', '.join(commands))
+                self.msg(u, ', '.join(commands))
 
             else:
                 command = command[1:]
-                c = conn.execute('select response from command where name == ?',(command,))
+                c = conn.execute('select response from command where name == ?', (command,))
 
                 r = c.fetchone()
                 if r is not None:
                     try:
                         u = msg.split(' ')[1]
-                        self.msg(channel,"%s: %s" % (u,str(r[0])))
+                        self.msg(channel, "%s: %s" % (u, str(r[0])))
 
                     except:
-                        self.msg(channel,str(r[0]))
+                        self.msg(channel, str(r[0]))
 
 class LogBotFactory(protocol.ClientFactory):
+
+    """Main irc connector"""
 
     def __init__(self, conn, channel, username, nspassword):
         self.conn = conn
@@ -313,8 +338,6 @@ if __name__ == '__main__':
                 if not os.path.isdir(config_dir):
                     raise conf('config path not found')
                     raise
-        else:
-            raise
     except:
         raise conf('arsenic takes a single argument, --config=/path/to/config/dir')
 
@@ -326,7 +349,7 @@ if __name__ == '__main__':
         modlook[mod] = imp.new_module(mod)
         sys.modules[mod] = modlook[mod]
         exec mod_bytecode in modlook[mod].__dict__
-        
+
         declare_table = modlook[mod].declare()
 
         for i in declare_table:
@@ -339,12 +362,14 @@ if __name__ == '__main__':
                 mod_declare_userjoin[i] = mod
 
     try:
-        channel = config.get('main','channel').translate(None, " ").split(',')
+        channel = config.get('main', 'channel').translate(None, " ").split(',')
 
-        f = LogBotFactory(conn, channel[0],config.get('main', 'name'), config.get('main','password'))
+        f = LogBotFactory(conn, channel[0], config.get('main', 'name'),
+                          config.get('main', 'password'))
     except IndexError:
         sys.exit(1)
 
-    reactor.connectSSL(config.get('network', 'hostname'), int(config.get('network', 'port')), f, ssl.ClientContextFactory())
+    reactor.connectSSL(config.get('network', 'hostname'), int(config.get('network', 'port')),
+                       f, ssl.ClientContextFactory())
 
     reactor.run()
