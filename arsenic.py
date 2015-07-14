@@ -40,6 +40,8 @@ modules = config.get('main', 'mod').translate(None, " ").split(',')
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
 
+channel_user = {}
+
 irc_relay = ""
 
 isconnected = False
@@ -116,6 +118,7 @@ class LogBot(irc.IRCClient):
     # callbacks for events
     def signedOn(self):
         for i in channel_list:
+            channel_user[i.lower()] = [self.nickname]
             self.join(i)
 
     def kickedFrom(self, channel, user, message):
@@ -424,11 +427,46 @@ class LogBot(irc.IRCClient):
                     self.privmsg(user, channel, data)
 
                 elif command == 'JOIN':
+                    user = user.split('!',1)[0]
                     self.userJoined(user, channel)
+                    channel_user[channel.lower()] = [user.strip('~%@+&')]
+
+                elif command == 'PART':
+                    user = user.split('!',1)[0]
+                    channel_user[channel.lower()].remove(user)
+
+                elif command == 'QUIT':
+                    user = user.split('!',1)[0]
+
+                    for i in channel_user:
+                        if user in channel_user[i]:
+                            channel_user[i].remove(user)
+
+                elif command == 'NICK':
+                    user = user.split('!',1)[0]
+                    channel_user[channel.lower()].remove(user)
+                    channel_user[channel.lower()] = [data]
 
                 elif command == 'KICK':
                     if victim.split('!') == self.nickname: #checks if we got kicked
                         self.kickedFrom(channel, victim, data)
+
+
+            elif line[1] == '353': #NAMES output
+                if line[3].startswith('#'):
+                    channel = line[3].lower()
+                    raw_user = raw_line.split(' ', 4)[4].split(':',1)[1]
+                else:
+                    channel = line[4].lower()
+                    raw_user = raw_line.split(' ', 5)[5].split(':',1)[1]
+
+                if channel not in channel_user:
+                    channel_user[channel] = [self.nickname]
+
+                for i in raw_user.split(' '):
+
+                    if i not in channel_user[channel]:
+                        channel_user[channel].append(i.strip('~%@+&'))
 
         except:
             print "Error: %s, raw: %s" % (sys.exc_info()[0], raw_line)
