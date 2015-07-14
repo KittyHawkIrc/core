@@ -40,7 +40,11 @@ modules = config.get('main', 'mod').translate(None, " ").split(',')
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
 
+channel_user = {}
+
 irc_relay = ""
+
+isconnected = False
 
 try:
     irc_relay = config.get('main', 'log')
@@ -113,7 +117,8 @@ class LogBot(irc.IRCClient):
 
     # callbacks for events
     def signedOn(self):
-        for i in channel:
+        for i in channel_list:
+            channel_user[i.lower()] = [self.nickname]
             self.join(i)
 
     def kickedFrom(self, channel, user, message):
@@ -129,6 +134,7 @@ class LogBot(irc.IRCClient):
                 False,
                 user=cbuser,
                 channel=cbchannel)
+
 
     def privmsg(self, user, channel, msg):
         user = user.split('^', 1)[0]
@@ -344,6 +350,128 @@ class LogBot(irc.IRCClient):
                         self.msg(channel, str(r[0]))
 
 
+    def lineReceived(self, line): #ACTUAL WORK
+                                  #Twisted API emulation
+
+        global isconnected
+
+        data = ''
+        channel = ''
+        server = ''
+        user = ''
+        command = ''
+        victim = ''
+
+
+        raw_line = line
+        line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
+
+        try:
+
+            if line[0].startswith(':'): #0 is user, so 1 is command
+                user = line[0].split(':',1)[1]
+                command = line[1]
+
+                if command.isdigit() == False: #on connect we're spammed with commands that aren't valid
+
+                    if line[2].startswith('#'): #PRIVMSG or NOTICE in channel
+                        channel = line[2]
+
+                        if command == 'KICK': #It's syntax is normalized for :
+                            victim = line[3]
+                            data = raw_line.split(' ',4)[4].split(':',1)[1]
+
+                        elif command == 'MODE':
+                            victim = line[4]
+                            data = line[3]
+
+                        else:
+                            if line[3] == ':ACTION': #/me, act like normal message
+                                data = raw_line.split(' ',4)[4].split(':',1)[1]
+                            else:
+                                data = raw_line.split(' ',3)[3].split(':',1)[1]
+
+                    elif line[2].startswith(':#'): #JOIN/KICK/ETC
+                        channel = line[2].split(':',1)[1]
+
+                    else: #PRIVMSG or NOTICE via query
+                        channel = self.nickname
+
+                        if line[2] == ':ACTION': #/me, act like normal message
+                            data = raw_line.split(' ',3)[3].split(':',1)[1]
+                        else:
+                            data = raw_line.split(' ',2)[2].split(':',1)[1]
+
+            else:
+                command = line[0] #command involving server
+                server = line[1].split(':',1)[1]
+
+            if command.isdigit() == False:
+
+                if command == 'NOTICE' and 'Connected' in data and isconnected == False:
+                                                    #DIRTY FUCKING HACK
+                                                    #100% UNSAFE. DO NOT USE THIS IN PRODUCTION
+                                                    #Proposed fixes: No idea, need to google things
+
+                    self.connectionMade()
+                    self.signedOn()
+                    isconnected = True #dirter hack, makes sure this only runs once
+
+
+                print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+
+                if command == 'PING':
+                    self.sendLine('PONG ' + server)
+
+                elif command == 'PRIVMSG': #privmsg(user, channel, msg)
+                    self.privmsg(user, channel, data)
+
+                elif command == 'JOIN':
+                    user = user.split('!',1)[0]
+                    self.userJoined(user, channel)
+                    channel_user[channel.lower()] = [user.strip('~%@+&')]
+
+                elif command == 'PART':
+                    user = user.split('!',1)[0]
+                    channel_user[channel.lower()].remove(user)
+
+                elif command == 'QUIT':
+                    user = user.split('!',1)[0]
+
+                    for i in channel_user:
+                        if user in channel_user[i]:
+                            channel_user[i].remove(user)
+
+                elif command == 'NICK':
+                    user = user.split('!',1)[0]
+                    channel_user[channel.lower()].remove(user)
+                    channel_user[channel.lower()] = [data]
+
+                elif command == 'KICK':
+                    if victim.split('!') == self.nickname: #checks if we got kicked
+                        self.kickedFrom(channel, victim, data)
+
+
+            elif line[1] == '353': #NAMES output
+                if line[3].startswith('#'):
+                    channel = line[3].lower()
+                    raw_user = raw_line.split(' ', 4)[4].split(':',1)[1]
+                else:
+                    channel = line[4].lower()
+                    raw_user = raw_line.split(' ', 5)[5].split(':',1)[1]
+
+                if channel not in channel_user:
+                    channel_user[channel] = [self.nickname]
+
+                for i in raw_user.split(' '):
+
+                    if i not in channel_user[channel]:
+                        channel_user[channel].append(i.strip('~%@+&'))
+
+        except:
+            print "Error: %s, raw: %s" % (sys.exc_info()[0], raw_line)
+
+
 class LogBotFactory(protocol.ClientFactory):
 
     """Main irc connector"""
@@ -406,9 +534,9 @@ if __name__ == '__main__':
                 mod_declare_userjoin[i] = mod
 
     try:
-        channel = config.get('main', 'channel').translate(None, " ").split(',')
+        channel_list = config.get('main', 'channel').translate(None, " ").split(',')
 
-        f = LogBotFactory(conn, channel[0], config.get('main', 'name'),
+        f = LogBotFactory(conn, channel_list[0], config.get('main', 'name'),
                           config.get('main', 'password'))
     except IndexError:
         raise SystemExit(0)
