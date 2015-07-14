@@ -113,7 +113,7 @@ class LogBot(irc.IRCClient):
 
     # callbacks for events
     def signedOn(self):
-        for i in channel:
+        for i in channel_list:
             self.join(i)
 
     def kickedFrom(self, channel, user, message):
@@ -129,6 +129,7 @@ class LogBot(irc.IRCClient):
                 False,
                 user=cbuser,
                 channel=cbchannel)
+
 
     def privmsg(self, user, channel, msg):
         user = user.split('^', 1)[0]
@@ -344,6 +345,77 @@ class LogBot(irc.IRCClient):
                         self.msg(channel, str(r[0]))
 
 
+    def lineReceived(self, line): #ACTUAL WORK
+#Twisted API emulation
+
+        if 'End of /MOTD command.' in line:  #DIRTY FUCKING HACK, 100% UNSAFE. DO NOT USE THIS IN PRODUCTION
+#Proposed fixes: No idea, need to google things
+
+
+            self.connectionMade()
+            self.signedOn()
+
+        data = ''
+        channel = ''
+        server = ''
+        user = ''
+        command = ''
+        victim = ''
+
+        raw_line = line
+        line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
+
+        if line[0].startswith(':'): #0 is user, so 1 is command
+            user = line[0].split(':',1)[1]
+            command = line[1]
+
+            if command.isdigit() == False: #on connect we're spammed with commands that aren't valid
+#TODO: This isn't perfect, stuff like 372 is apparently not a digit
+
+                if line[2].startswith('#'): #PRIVMSG or NOTICE in channel
+                    channel = line[2]
+
+                    if command == 'KICK': #It's syntax is normalized for :
+                        victim = line[3]
+                        data = raw_line.split(' ',4)[4].split(':',1)[1]
+
+                    else:
+                        if line[3] == ':ACTION': #/me, act like normal message
+                            data = raw_line.split(' ',4)[4].split(':',1)[1]
+                        else:
+                            data = raw_line.split(' ',3)[3].split(':',1)[1]
+
+                elif line[2].startswith(':#'): #JOIN/KICK/ETC
+                    channel = line[2].split(':',1)[1]
+
+                else: #PRIVMSG or NOTICE via query
+                    channel = self.nickname
+
+                    if line[2] == ':ACTION': #/me, act like normal message
+                        data = raw_line.split(' ',3)[3].split(':',1)[1]
+                    else:
+                        data = raw_line.split(' ',2)[2].split(':',1)[1]
+
+        else:
+            command = line[0] #command involving server
+            server = line[1].split(':',1)[1]
+
+        print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+
+        if command == 'PING':
+            self.sendLine('PONG ' + server)
+
+        elif command == 'PRIVMSG': #privmsg(user, channel, msg)
+            self.privmsg(user, channel, data)
+
+        elif command == 'JOIN':
+            self.userJoined(user, channel)
+
+        elif command == 'KICK':
+            if victim.split('!') == self.nickname: #checks if we got kicked
+                self.kickedFrom(channel, victim, data)
+
+
 class LogBotFactory(protocol.ClientFactory):
 
     """Main irc connector"""
@@ -406,9 +478,9 @@ if __name__ == '__main__':
                 mod_declare_userjoin[i] = mod
 
     try:
-        channel = config.get('main', 'channel').translate(None, " ").split(',')
+        channel_list = config.get('main', 'channel').translate(None, " ").split(',')
 
-        f = LogBotFactory(conn, channel[0], config.get('main', 'name'),
+        f = LogBotFactory(conn, channel_list[0], config.get('main', 'name'),
                           config.get('main', 'password'))
     except IndexError:
         raise SystemExit(0)
