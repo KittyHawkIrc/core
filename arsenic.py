@@ -42,6 +42,8 @@ mod_declare_userjoin = {}
 
 irc_relay = ""
 
+isconnected = False
+
 try:
     irc_relay = config.get('main', 'log')
 except:
@@ -348,12 +350,7 @@ class LogBot(irc.IRCClient):
     def lineReceived(self, line): #ACTUAL WORK
                                   #Twisted API emulation
 
-        if 'End of /MOTD command.' in line:  #DIRTY FUCKING HACK, 100% UNSAFE. DO NOT USE THIS IN PRODUCTION
-                                             #Proposed fixes: No idea, need to google things
-
-
-            self.connectionMade()
-            self.signedOn()
+        global isconnected
 
         data = ''
         channel = ''
@@ -361,6 +358,7 @@ class LogBot(irc.IRCClient):
         user = ''
         command = ''
         victim = ''
+
 
         raw_line = line
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
@@ -372,7 +370,6 @@ class LogBot(irc.IRCClient):
                 command = line[1]
 
                 if command.isdigit() == False: #on connect we're spammed with commands that aren't valid
-                                               #TODO: This isn't perfect, stuff like 372 is apparently not a digit
 
                     if line[2].startswith('#'): #PRIVMSG or NOTICE in channel
                         channel = line[2]
@@ -406,20 +403,32 @@ class LogBot(irc.IRCClient):
                 command = line[0] #command involving server
                 server = line[1].split(':',1)[1]
 
-            print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+            if command.isdigit() == False:
 
-            if command == 'PING':
-                self.sendLine('PONG ' + server)
+                if command == 'NOTICE' and 'Connected' in data and isconnected == False:
+                                                    #DIRTY FUCKING HACK
+                                                    #100% UNSAFE. DO NOT USE THIS IN PRODUCTION
+                                                    #Proposed fixes: No idea, need to google things
 
-            elif command == 'PRIVMSG': #privmsg(user, channel, msg)
-                self.privmsg(user, channel, data)
+                    self.connectionMade()
+                    self.signedOn()
+                    isconnected = True #dirter hack, makes sure this only runs once
 
-            elif command == 'JOIN':
-                self.userJoined(user, channel)
 
-            elif command == 'KICK':
-                if victim.split('!') == self.nickname: #checks if we got kicked
-                    self.kickedFrom(channel, victim, data)
+                print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+
+                if command == 'PING':
+                    self.sendLine('PONG ' + server)
+
+                elif command == 'PRIVMSG': #privmsg(user, channel, msg)
+                    self.privmsg(user, channel, data)
+
+                elif command == 'JOIN':
+                    self.userJoined(user, channel)
+
+                elif command == 'KICK':
+                    if victim.split('!') == self.nickname: #checks if we got kicked
+                        self.kickedFrom(channel, victim, data)
 
         except:
             print "Error: %s, raw: %s" % (sys.exc_info()[0], raw_line)
