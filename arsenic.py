@@ -346,10 +346,10 @@ class LogBot(irc.IRCClient):
 
 
     def lineReceived(self, line): #ACTUAL WORK
-#Twisted API emulation
+                                  #Twisted API emulation
 
         if 'End of /MOTD command.' in line:  #DIRTY FUCKING HACK, 100% UNSAFE. DO NOT USE THIS IN PRODUCTION
-#Proposed fixes: No idea, need to google things
+                                             #Proposed fixes: No idea, need to google things
 
 
             self.connectionMade()
@@ -365,55 +365,64 @@ class LogBot(irc.IRCClient):
         raw_line = line
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
 
-        if line[0].startswith(':'): #0 is user, so 1 is command
-            user = line[0].split(':',1)[1]
-            command = line[1]
+        try:
 
-            if command.isdigit() == False: #on connect we're spammed with commands that aren't valid
-#TODO: This isn't perfect, stuff like 372 is apparently not a digit
+            if line[0].startswith(':'): #0 is user, so 1 is command
+                user = line[0].split(':',1)[1]
+                command = line[1]
 
-                if line[2].startswith('#'): #PRIVMSG or NOTICE in channel
-                    channel = line[2]
+                if command.isdigit() == False: #on connect we're spammed with commands that aren't valid
+                                               #TODO: This isn't perfect, stuff like 372 is apparently not a digit
 
-                    if command == 'KICK': #It's syntax is normalized for :
-                        victim = line[3]
-                        data = raw_line.split(' ',4)[4].split(':',1)[1]
+                    if line[2].startswith('#'): #PRIVMSG or NOTICE in channel
+                        channel = line[2]
 
-                    else:
-                        if line[3] == ':ACTION': #/me, act like normal message
+                        if command == 'KICK': #It's syntax is normalized for :
+                            victim = line[3]
                             data = raw_line.split(' ',4)[4].split(':',1)[1]
+
+                        elif command == 'MODE':
+                            victim = line[4]
+                            data = line[3]
+
                         else:
+                            if line[3] == ':ACTION': #/me, act like normal message
+                                data = raw_line.split(' ',4)[4].split(':',1)[1]
+                            else:
+                                data = raw_line.split(' ',3)[3].split(':',1)[1]
+
+                    elif line[2].startswith(':#'): #JOIN/KICK/ETC
+                        channel = line[2].split(':',1)[1]
+
+                    else: #PRIVMSG or NOTICE via query
+                        channel = self.nickname
+
+                        if line[2] == ':ACTION': #/me, act like normal message
                             data = raw_line.split(' ',3)[3].split(':',1)[1]
+                        else:
+                            data = raw_line.split(' ',2)[2].split(':',1)[1]
 
-                elif line[2].startswith(':#'): #JOIN/KICK/ETC
-                    channel = line[2].split(':',1)[1]
+            else:
+                command = line[0] #command involving server
+                server = line[1].split(':',1)[1]
 
-                else: #PRIVMSG or NOTICE via query
-                    channel = self.nickname
+            print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
 
-                    if line[2] == ':ACTION': #/me, act like normal message
-                        data = raw_line.split(' ',3)[3].split(':',1)[1]
-                    else:
-                        data = raw_line.split(' ',2)[2].split(':',1)[1]
+            if command == 'PING':
+                self.sendLine('PONG ' + server)
 
-        else:
-            command = line[0] #command involving server
-            server = line[1].split(':',1)[1]
+            elif command == 'PRIVMSG': #privmsg(user, channel, msg)
+                self.privmsg(user, channel, data)
 
-        print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+            elif command == 'JOIN':
+                self.userJoined(user, channel)
 
-        if command == 'PING':
-            self.sendLine('PONG ' + server)
+            elif command == 'KICK':
+                if victim.split('!') == self.nickname: #checks if we got kicked
+                    self.kickedFrom(channel, victim, data)
 
-        elif command == 'PRIVMSG': #privmsg(user, channel, msg)
-            self.privmsg(user, channel, data)
-
-        elif command == 'JOIN':
-            self.userJoined(user, channel)
-
-        elif command == 'KICK':
-            if victim.split('!') == self.nickname: #checks if we got kicked
-                self.kickedFrom(channel, victim, data)
+        except:
+            print "Error: %s, raw: %s" % (sys.exc_info()[0], raw_line)
 
 
 class LogBotFactory(protocol.ClientFactory):
