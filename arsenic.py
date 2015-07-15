@@ -288,6 +288,12 @@ class LogBot(irc.IRCClient):
                         elif cmd_check == 'userjoin':
                             mod_declare_userjoin[i] = mod
 
+                elif msg.startswith('inject'):
+                    self.lineReceived(msg.split(' ',1)[1])
+
+                elif msg.startswith('raw'):
+                    self.sendLine(msg.split(' ',1)[1])
+
                 elif msg.startswith('help'):
                     u = user.split('!', 1)[0]
                     self.msg(u, 'Howdy, %s, you silly operator.' % (u))
@@ -367,7 +373,6 @@ class LogBot(irc.IRCClient):
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
 
         try:
-
             if line[0].startswith(':'): #0 is user, so 1 is command
                 user = line[0].split(':',1)[1]
                 command = line[1]
@@ -384,6 +389,12 @@ class LogBot(irc.IRCClient):
                         elif command == 'MODE':
                             victim = line[4]
                             data = line[3]
+
+                        elif command == 'PART':
+                            if len(line) == 4: #Implies part message
+                                data = raw_line.split(' ',3)[3].split(':',1)[1]
+                            else:
+                                data = ''
 
                         else:
                             if line[3] == ':ACTION': #/me, act like normal message
@@ -433,7 +444,15 @@ class LogBot(irc.IRCClient):
 
                 elif command == 'PART':
                     user = user.split('!',1)[0]
-                    channel_user[channel.lower()].remove(user)
+
+                    if channel.lower() in channel_user:
+                        if user in channel_user[channel.lower()]:
+                            channel_user[channel.lower()].remove(user)
+                        else:
+                            print "Warning: Tried to remove unknown user. (%s)" % (user)
+
+                    else:
+                        print "Warning: Tried to remove user from unknown channel. (%s, %s)" % (channel.lower(), user)
 
                 elif command == 'QUIT':
                     user = user.split('!',1)[0]
@@ -444,7 +463,16 @@ class LogBot(irc.IRCClient):
 
                 elif command == 'NICK':
                     user = user.split('!',1)[0]
-                    channel_user[channel.lower()].remove(user)
+
+                    if channel.lower() in channel_user:
+                        if user in channel_user[channel.lower()]:
+                            channel_user[channel.lower()].remove(user)
+                        else:
+                            print "Warning: Tried to remove unknown user. (%s)" % (user)
+
+                    else:
+                        print "Warning: Tried to remove user from unknown channel. (%s, %s)" % (channel.lower(), user)
+
                     channel_user[channel.lower()] = [data]
 
                 elif command == 'KICK':
