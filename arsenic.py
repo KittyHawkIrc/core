@@ -12,7 +12,6 @@ This is WIP code under active development.
 """
 import ConfigParser
 import cProfile
-import csv
 import imp
 import os
 import pstats
