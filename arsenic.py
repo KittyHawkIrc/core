@@ -528,7 +528,6 @@ class LogBotFactory(protocol.ClientFactory):
 
 if __name__ == '__main__':
     conn = sqlite3.connect(db_name)
-    log.startLogging(sys.stdout)
 
     try:
         if sys.argv[1].startswith('--config='):
