@@ -18,12 +18,18 @@ import pstats
 import sqlite3
 import StringIO
 import sys
+import time
 
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
+
+VER = '0.1.59'
+file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
+print "THE_KGB %s, log: %s" % (VER, file_log)
+log.startLogging(open(file_log, 'w'))
 
 config_dir = ''
 
@@ -49,7 +55,7 @@ isconnected = False
 try:
     irc_relay = config.get('main', 'log')
 except:
-    print "no relay log channel"
+    log.msg("no relay log channel")
 
 db_name = ""
 
@@ -59,11 +65,8 @@ except:
     db_name = ""
 
 if os.path.isfile(db_name) is False:
-    print "##########   No database found!   ##########"
+    log.err("No database found!")
     raise SystemExit(0)
-else:
-    print db_name
-
 
 class conf(Exception):
 
@@ -428,8 +431,8 @@ class LogBot(irc.IRCClient):
                     self.signedOn()
                     isconnected = True #dirter hack, makes sure this only runs once
 
-
-                print "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+                log_data = "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
+                log.msg(log_data)
 
                 if command == 'PING':
                     self.sendLine('PONG ' + server)
@@ -449,10 +452,10 @@ class LogBot(irc.IRCClient):
                         if user in channel_user[channel.lower()]:
                             channel_user[channel.lower()].remove(user)
                         else:
-                            print "Warning: Tried to remove unknown user. (%s)" % (user)
+                            log.err("Warning: Tried to remove unknown user. (%s)" % (user))
 
                     else:
-                        print "Warning: Tried to remove user from unknown channel. (%s, %s)" % (channel.lower(), user)
+                        log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (channel.lower(), user))
 
                 elif command == 'QUIT':
                     user = user.split('!',1)[0]
@@ -468,10 +471,10 @@ class LogBot(irc.IRCClient):
                         if user in channel_user[channel.lower()]:
                             channel_user[channel.lower()].remove(user)
                         else:
-                            print "Warning: Tried to remove unknown user. (%s)" % (user)
+                            log.err("Warning: Tried to remove unknown user. (%s)" % (user))
 
                     else:
-                        print "Warning: Tried to remove user from unknown channel. (%s, %s)" % (channel.lower(), user)
+                        log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (channel.lower(), user))
 
                     channel_user[channel.lower()] = [data]
 
@@ -497,8 +500,7 @@ class LogBot(irc.IRCClient):
                         channel_user[channel].append(i.strip('~%@+&'))
 
         except:
-            print "Error: %s, raw: %s" % (sys.exc_info()[0], raw_line)
-
+            log.err("Error: %s" % (raw_line))
 
 class LogBotFactory(protocol.ClientFactory):
 
@@ -520,7 +522,7 @@ class LogBotFactory(protocol.ClientFactory):
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
-        print "connection failed:", reason
+        log.err("connection failed: %s" % (reason))
         reactor.stop()
 
 
