@@ -10,18 +10,19 @@
 This is WIP code under active development.
 
 """
-
-import os
-import sys
-import imp
-import sqlite3
 import ConfigParser
-from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol, ssl
-from twisted.python import log
 import cProfile
+import csv
+import imp
+import os
 import pstats
+import sqlite3
 import StringIO
+import sys
+
+from twisted.internet import protocol, reactor, ssl
+from twisted.python import log
+from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
