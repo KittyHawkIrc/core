@@ -163,8 +163,6 @@ class LogBot(irc.IRCClient):
                     user=user,
                     channel=channel)
 
-                self.msg("coup_de_shitlord", "done")
-
             # private commands
             if irc_relay != "":
                 self.msg(irc_relay, user + " said " + msg)
