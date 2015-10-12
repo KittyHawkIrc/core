@@ -369,7 +369,6 @@ class LogBot(irc.IRCClient):
         command = ''
         victim = ''
 
-
         raw_line = line
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
 
@@ -420,7 +419,7 @@ class LogBot(irc.IRCClient):
 
             if command.isdigit() == False:
 
-                if command == 'NOTICE' and 'Connected' in data and isconnected == False:
+                if command == 'NOTICE' and 'connected' in data.lower() and isconnected == False:
                                                     #DIRTY FUCKING HACK
                                                     #100% UNSAFE. DO NOT USE THIS IN PRODUCTION
                                                     #Proposed fixes: No idea, need to google things
