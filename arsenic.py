@@ -26,7 +26,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '0.1.59'
+VER = '0.1.60'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "THE_KGB %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
@@ -47,6 +47,11 @@ mod_declare_privmsg = {}
 mod_declare_userjoin = {}
 
 channel_user = {}
+
+try:    #^help/etc
+    key = config.get('main', 'command_key').translate(None, "^")
+except:
+    key = '^'
 
 irc_relay = ""
 
@@ -140,7 +145,7 @@ class LogBot(irc.IRCClient):
 
 
     def privmsg(self, user, channel, msg):
-        user = user.split('^', 1)[0]
+        user = user.split(key, 1)[0]
         if user == self.nickname:
             return
 
@@ -310,8 +315,7 @@ class LogBot(irc.IRCClient):
                 u = user.split('!', 1)[0]
                 self.msg(u, 'I only accept commands from bot operators')
 
-        elif msg.startswith('^'):
-
+        elif msg.startswith(key):
             if command[1:] in mod_declare_privmsg:
                 modlook[
                     mod_declare_privmsg[
@@ -326,16 +330,16 @@ class LogBot(irc.IRCClient):
                     user,
                     channel)
 
-            elif msg.startswith('^help'):
+            elif msg.startswith(key + 'help'):
                 u = user.split('!', 1)[0]
 
                 commands = []
                 c = conn.execute('select name from command')
                 for cmd in modules:
-                    commands.append("^" + cmd)
+                    commands.append(key + cmd)
 
                 for command in c:
-                    commands.append("^" + str(command[0]))
+                    commands.append(key + str(command[0]))
 
                 self.msg(u, 'Howdy, %s' % (u))
                 self.msg(u, 'You have access to the following commands:')
