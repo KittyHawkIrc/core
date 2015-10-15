@@ -38,6 +38,9 @@ config = ConfigParser.ConfigParser()
 config.readfp(cfile)
 cfile.close()
 
+hostname = config.get('network', 'hostname')
+port = int(config.get('network', 'port'))
+
 oplist = config.get('main', 'op').translate(None, " ").split(',')
 
 modlook = {}
@@ -145,7 +148,11 @@ class LogBot(irc.IRCClient):
 
 
     def privmsg(self, user, channel, msg):
-        user = user.split(key, 1)[0]
+        try:
+            user = user.split(key, 1)[0]
+        except:
+            user = user
+
         if user == self.nickname:
             return
 
@@ -347,7 +354,7 @@ class LogBot(irc.IRCClient):
                 self.msg(u, ', '.join(commands))
 
             else:
-                command = command[1:]
+                command = command.split(key, 1)[1]
                 c = conn.execute(
                     'select response from command where name == ?', (command,))
 
@@ -500,8 +507,9 @@ class LogBot(irc.IRCClient):
                     if i not in channel_user[channel]:
                         channel_user[channel].append(i.strip('~%@+&'))
 
-        except:
-            log.err("Error: %s" % (raw_line))
+        except Exception as err:
+            log.err("Exception: %s" % (err))
+            log.err("Error: %s, LN: %s" % (raw_line, sys.exc_info()[-1].tb_lineno))
 
 class LogBotFactory(protocol.ClientFactory):
 
@@ -571,10 +579,6 @@ if __name__ == '__main__':
     except IndexError:
         raise SystemExit(0)
 
-    reactor.connectSSL(
-        config.get(
-            'network', 'hostname'), int(
-            config.get(
-                'network', 'port')), f, ssl.ClientContextFactory())
+    reactor.connectSSL(hostname, port, f, ssl.ClientContextFactory())
 
     reactor.run()
