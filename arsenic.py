@@ -309,6 +309,7 @@ class LogBot(irc.IRCClient):
 
                 elif msg.startswith('help'):
                     u = user.split('!', 1)[0]
+                    self.msg(u, 'THE_KGB Ver: %s' % (VER))
                     self.msg(u, 'Howdy, %s, you silly operator.' % (u))
                     self.msg(u, 'You have access to the following commands:')
                     self.msg(u, 'add {command} {value}, del {command}')
@@ -323,16 +324,15 @@ class LogBot(irc.IRCClient):
                 self.msg(u, 'I only accept commands from bot operators')
 
         elif msg.startswith(key):
-            if command[1:] in mod_declare_privmsg:
+            command_short = command.split(key, 1)[1]
+            if command_short in mod_declare_privmsg:
                 modlook[
                     mod_declare_privmsg[
-                        command[
-                            1:]]].callback(
+                        command_short]].callback(
                     self,
                     "privmsg",
                     auth,
-                    command[
-                        1:],
+                    command_short,
                     msg,
                     user,
                     channel)
