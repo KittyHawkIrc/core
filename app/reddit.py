@@ -27,7 +27,10 @@ def callback(self, type, isop, command="", msg="", user="", channel="", mode="")
                 url = 'https://i.imgur.com/%s' % (url.split('/')[3])
 
             if 'http://' in url and '/a/' not in url:   #direct URLs
-                url = 'https://i.imgur.com/%s.jpg' % (url.split('/')[3])
+                if 'gallery' in url:
+                    url = 'https://i.imgur.com/%s.jpg' % (url.split('/')[4])
+                else:
+                    url = 'https://i.imgur.com/%s.jpg' % (url.split('/')[3])
 
         cringe.append([title, url])
 
