@@ -5,7 +5,8 @@ def declare():
 
 def callback(self, type, isop, command="", msg="", user="", channel="", mode=""):
 
-    fd = urllib2.urlopen("https://www.reddit.com/r/SwordOrSheath/new.json")
+    req = urllib2.Request("https://www.reddit.com/r/SwordOrSheath/new.json", headers={ 'User-Agent': 'UNIX:the_kgb:0.157 http://github.com/stqism/THE_KGB' })
+    fd = urllib2.urlopen(req)
     reddit_api = json.loads(fd.read())
     fd.close()
 
