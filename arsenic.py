@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '0.1.62'
+VER = '0.1.63'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "THE_KGB %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
@@ -161,6 +161,9 @@ class LogBot(irc.IRCClient):
 
         if user == self.nickname:
             return
+
+            if not channel.startswith('#'):
+                channel = user
 
         auth = self.isauth(user)
 
