@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # pylint: disable=C0103
 # pylint: disable=W0702
@@ -19,6 +20,7 @@ import sqlite3
 import StringIO
 import sys
 import time
+import urllib2
 
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
@@ -26,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '0.1.60'
+VER = '0.1.61'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "THE_KGB %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
@@ -249,7 +251,7 @@ class LogBot(irc.IRCClient):
                 elif msg.startswith('prof_off'):
                     pr.disable()
                     u = user.split('!', 1)[0]
-                    self.msg(u, 'profiling on')
+                    self.msg(u, 'profiling off')
 
                 elif msg.startswith('prof_stat'):
                     u = user.split('!', 1)[0]
@@ -258,6 +260,22 @@ class LogBot(irc.IRCClient):
                     ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
                     ps.print_stats()
                     self.msg(u, s.getvalue())
+
+                elif msg.startswith('mod_inject'):
+                    mod = msg.split(' ')[1]
+                    url =  msg.split(' ')[2]
+                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:the_kgb:0.161 http://github.com/stqism/THE_KGB' })
+
+                    fd = urllib2.urlopen(req)
+                    mod_src = open(config_dir + '/app/' + mod + '.py', 'w')
+
+                    data = fd.read()
+                    mod_src.write(data)
+                    os.fsync(mod_src)
+
+                    fd.close
+                    mod_src.close()
+                    mod_src.close()
 
                 elif msg.startswith('mod_reload'):
                     mod = msg.split(' ')[1]
@@ -284,6 +302,7 @@ class LogBot(irc.IRCClient):
 
                     mod_src = open(config_dir + '/app/' + mod + '.py')
                     mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+                    mod_src.close()
 
                     modlook[mod] = imp.new_module(mod)
                     sys.modules[mod] = modlook[mod]
@@ -307,7 +326,7 @@ class LogBot(irc.IRCClient):
                 elif msg.startswith('raw'):
                     self.sendLine(msg.split(' ',1)[1])
 
-                elif msg.startswith('help'):
+                elif msg == 'help':
                     u = user.split('!', 1)[0]
                     self.msg(u, 'THE_KGB Ver: %s' % (VER))
                     self.msg(u, 'Howdy, %s, you silly operator.' % (u))
@@ -318,6 +337,18 @@ class LogBot(irc.IRCClient):
                     self.msg(u, 'kick {channel} {name} {optional reason}')
                     self.msg(u, 'ban/unban {channel} {hostmask}')
                     self.msg(u, 'msg {channel} {message}')
+
+                elif msg.startswith('help_sysop'):
+                    u = user.split('!', 1)[0]
+                    self.msg(u, 'THE_KGB Ver: %s' % (VER))
+                    self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
+                    self.msg(u, 'SysOP commands:')
+                    self.msg(u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
+                    self.msg(u, 'prof_on, prof_off (enable or disable profiling, DO NOT USE)')
+                    self.msg(u, 'restart, prof_stat (Restart or display profiling stats (see ^))')
+                    self.msg(u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
+                    self.msg(u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
+                    self.msg(u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
 
             else:
                 u = user.split('!', 1)[0]
