@@ -163,7 +163,7 @@ class LogBot(irc.IRCClient):
             return
 
             if not channel.startswith('#'):
-                channel = user
+                channel = user.split('!')
 
         auth = self.isauth(user)
 
