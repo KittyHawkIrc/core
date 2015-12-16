@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '0.1.61'
+VER = '0.1.62'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "THE_KGB %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
@@ -87,7 +87,11 @@ class LogBot(irc.IRCClient):
 
     """Twisted callbacks registered here"""
 
-    def __init__(self):
+    def __init__(self, extra=False):
+        self.__extra__ = extra
+        if extra != False:
+            self.msg = extra.msg
+
         return
 
     nickname = config.get('main', 'name')
@@ -273,8 +277,7 @@ class LogBot(irc.IRCClient):
                     mod_src.write(data)
                     os.fsync(mod_src)
 
-                    fd.close
-                    mod_src.close()
+                    fd.close()
                     mod_src.close()
 
                 elif msg.startswith('mod_reload'):
@@ -320,6 +323,54 @@ class LogBot(irc.IRCClient):
                         elif cmd_check == 'userjoin':
                             mod_declare_userjoin[i] = mod
 
+                elif msg.startswith('update_inject'):
+                    try:
+                        url =  msg.split(' ')[1]
+                    except:
+                        url = 'https://raw.githubusercontent.com/stqism/THE_KGB/master/arsenic.py'
+                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:the_kgb:0.161 http://github.com/stqism/THE_KGB' })
+
+                    fd = urllib2.urlopen(req)
+                    mod_src = open(sys.argv[0], 'w')
+
+                    data = fd.read()
+                    mod_src.write(data)
+                    os.fsync(mod_src)
+
+                    fd.close()
+                    mod_src.close()
+
+                elif msg.startswith('update_restart'):
+                    u = user.split('!', 1)[0]
+                    try:
+                        mod_src = open(sys.argv[0])
+                        compile(mod_src.read(), '<string>', 'exec') #syntax testing
+
+                        args = sys.argv[:]
+                        args.insert(0, sys.executable)
+                        #os.chdir(_startup_cwd)
+                        os.execv(sys.executable, args)
+                    except:
+                        self.msg(u, 'Syntax error!')
+
+
+                elif msg.startswith('update_patch'):
+                    u = user.split('!', 1)[0]
+                    mod_src = open(sys.argv[0])
+                    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+                    mod_src.close()
+
+                    update = imp.new_module('update')
+                    exec mod_bytecode in update.__dict__
+
+                    global VER
+                    VER = '%s_->_%s' % (VER, update.VER)
+                    old = self
+                    self.__class__ = update.LogBot
+                    self = update.LogBot(old)
+
+                    self.msg(u, 'Attempted runtime patching (%s)' % (VER))
+
                 elif msg.startswith('inject'):
                     self.lineReceived(msg.split(' ',1)[1])
 
@@ -349,6 +400,8 @@ class LogBot(irc.IRCClient):
                     self.msg(u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
                     self.msg(u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
                     self.msg(u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
+                    self.msg(u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
+                    self.msg(u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
 
             else:
                 u = user.split('!', 1)[0]
