@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env pypy
 # -*- coding: utf-8 -*-
 # pylint: disable=C0103
 # pylint: disable=W0702
@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '0.1.63'
+VER = '0.1.64'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "THE_KGB %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
@@ -52,6 +52,8 @@ mod_declare_privmsg = {}
 mod_declare_userjoin = {}
 
 channel_user = {}
+
+sync_channels = {}
 
 try:    #^help/etc
     key = config.get('main', 'command_key').translate(None, "^")
@@ -170,6 +172,10 @@ class LogBot(irc.IRCClient):
 # Start module execution
 
         command = msg.split(' ', 1)[0].lower()
+
+        if channel in sync_channels:    #syncing
+            u = user.split('!', 1)[0]
+            self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
 
         if channel == self.nickname:
 
@@ -380,6 +386,27 @@ class LogBot(irc.IRCClient):
                 elif msg.startswith('raw'):
                     self.sendLine(msg.split(' ',1)[1])
 
+                elif msg.startswith('sync'):
+                    u = user.split('!', 1)[0]
+                    ch1 = msg.split(' ')[1]
+                    ch2 = msg.split(' ')[2]
+
+                    sync_channels[ch1] = ch2
+
+                    self.msg(u, '%s -> %s' % (ch1, ch2))
+
+                elif msg.startswith('unsync'):
+                    u = user.split('!', 1)[0]
+                    ch1 = msg.split(' ')[1]
+                    del sync_channels[ch1]
+
+                    self.msg(u, '%s -> X' % (ch1))
+
+                elif msg.startswith('sync_list'):
+                    u = user.split('!', 1)[0]
+                    for i in sync_channels:
+                        self.msg(u, '%s -> %s' % (i, sync_channels[i]))
+
                 elif msg == 'help':
                     u = user.split('!', 1)[0]
                     self.msg(u, 'THE_KGB Ver: %s' % (VER))
@@ -390,7 +417,9 @@ class LogBot(irc.IRCClient):
                     self.msg(u, 'nick {nickname}, topic {channel} {topic}')
                     self.msg(u, 'kick {channel} {name} {optional reason}')
                     self.msg(u, 'ban/unban {channel} {hostmask}')
-                    self.msg(u, 'msg {channel} {message}')
+                    self.msg(u, 'sync {channel1} {channel2}, unsync {channel1}')
+                    self.msg(u, 'sync_list, msg {channel} {message}')
+
 
                 elif msg.startswith('help_sysop'):
                     u = user.split('!', 1)[0]
