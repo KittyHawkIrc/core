@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '0.1.64'
+VER = '1.0.0'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "THE_KGB %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
@@ -44,6 +44,8 @@ hostname = config.get('network', 'hostname')
 port = int(config.get('network', 'port'))
 
 oplist = config.get('main', 'op').translate(None, " ").split(',')
+ownerlist = oplist
+
 
 modlook = {}
 modules = config.get('main', 'mod').translate(None, " ").split(',')
@@ -85,7 +87,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-class LogBot(irc.IRCClient):
+class Arsenic(irc.IRCClient):
 
     """Twisted callbacks registered here"""
 
@@ -96,9 +98,16 @@ class LogBot(irc.IRCClient):
 
         return
 
+    class persist():
+        pass
+
+    save = persist()
+
+    lockerbox = {}
+
     nickname = config.get('main', 'name')
 
-    def isauth(self, user):
+    def checkauth(self, user):
         """Checks if hostmask is bot op"""
 
         user_host = user.split('!', 1)[1]
@@ -127,6 +136,16 @@ class LogBot(irc.IRCClient):
             else:
                 return False
 
+    def checkowner(self, user):
+        """Checks if hostmask is bot owner"""
+
+        user_host = user.split('!', 1)[1]
+
+        if user_host in ownerlist:
+            return True
+        else:
+            return False
+
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         self.msg('NickServ', 'identify ' + self.factory.nspassword)
@@ -145,14 +164,15 @@ class LogBot(irc.IRCClient):
         del user
 
     def userJoined(self, cbuser, cbchannel):
+        setattr(self, 'type', 'userjoin')
+        setattr(self, 'user', cbuser)
+        setattr(self, 'channel', cbchannel)
+        setattr(self, 'ver', VER)
+
         for command in mod_declare_userjoin:
             modlook[
                 mod_declare_userjoin[command]].callback(
-                self,
-                "userjoin",
-                False,
-                user=cbuser,
-                channel=cbchannel)
+                self)
 
 
     def privmsg(self, user, channel, msg):
@@ -167,7 +187,8 @@ class LogBot(irc.IRCClient):
             if not channel.startswith('#'):
                 channel = user.split('!')
 
-        auth = self.isauth(user)
+        auth = self.checkauth(user)
+        owner = self.checkowner(user)
 
 # Start module execution
 
@@ -177,18 +198,34 @@ class LogBot(irc.IRCClient):
             u = user.split('!', 1)[0]
             self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
 
+        if command.startswith(key):
+            com = command.split(key, 1)[1]
+        else:
+            com = command
+
+        try:
+            self.lockerbox[mod_declare_privmsg[com]]
+        except:
+            self.lockerbox[mod_declare_privmsg[com]] = self.persist()
+
+        #attributes
+        setattr(self, 'isop', auth)
+        setattr(self, 'isowner', owner)
+        setattr(self, 'type', 'privmsg')
+        setattr(self, 'command', com)
+        setattr(self, 'message', msg)
+        setattr(self, 'user', user)
+        setattr(self, 'channel', channel)
+        setattr(self, 'ver', VER)
+        setattr(self, 'store', self.save)
+        setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
+
         if channel == self.nickname:
 
             if command in mod_declare_privmsg:
                 modlook[
                     mod_declare_privmsg[command]].callback(
-                    self,
-                    "privmsg",
-                    auth,
-                    command,
-                    msg=msg,
-                    user=user,
-                    channel=channel)
+                    self)
 
             # private commands
             if irc_relay != "":
@@ -375,8 +412,8 @@ class LogBot(irc.IRCClient):
                     global VER
                     VER = '%s_->_%s' % (VER, update.VER)
                     old = self
-                    self.__class__ = update.LogBot
-                    self = update.LogBot(old)
+                    self.__class__ = update.Arsenic
+                    self = update.Arsenic(old)
 
                     self.msg(u, 'Attempted runtime patching (%s)' % (VER))
 
@@ -445,13 +482,7 @@ class LogBot(irc.IRCClient):
                 modlook[
                     mod_declare_privmsg[
                         command_short]].callback(
-                    self,
-                    "privmsg",
-                    auth,
-                    command_short,
-                    msg,
-                    user,
-                    channel)
+                    self)
 
             elif msg.startswith(key + 'help'):
                 u = user.split('!', 1)[0]
@@ -627,7 +658,7 @@ class LogBot(irc.IRCClient):
             log.err("Exception: %s" % (err))
             log.err("Error: %s, LN: %s" % (raw_line, sys.exc_info()[-1].tb_lineno))
 
-class LogBotFactory(protocol.ClientFactory):
+class ArsenicFactory(protocol.ClientFactory):
 
     """Main irc connector"""
 
@@ -639,7 +670,7 @@ class LogBotFactory(protocol.ClientFactory):
         self.nspassword = nspassword
 
     def buildProtocol(self, addr):
-        p = LogBot()
+        p = Arsenic()
         p.factory = self
         return p
 
@@ -690,7 +721,7 @@ if __name__ == '__main__':
     try:
         channel_list = config.get('main', 'channel').translate(None, " ").split(',')
 
-        f = LogBotFactory(conn, channel_list[0], config.get('main', 'name'),
+        f = ArsenicFactory(conn, channel_list[0], config.get('main', 'name'),
                           config.get('main', 'password'))
     except IndexError:
         raise SystemExit(0)
