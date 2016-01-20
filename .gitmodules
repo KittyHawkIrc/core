@@ -1,0 +1,4 @@
+[submodule "modules"]
+	path = modules
+	url = https://github.com/kittyhawkirc/modules
+	branch = production
