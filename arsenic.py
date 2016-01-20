@@ -639,11 +639,6 @@ class Arsenic(irc.IRCClient):
                     if victim.split('!') == self.nickname: #checks if we got kicked
                         self.kickedFrom(channel, victim, data)
 
-                else:
-                    print command
-                    print data
-
-
             elif line[1] == '353': #NAMES output
                 if line[3].startswith('#'):
                     channel = line[3].lower()
