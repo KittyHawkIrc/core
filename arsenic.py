@@ -317,7 +317,7 @@ class Arsenic(irc.IRCClient):
                     req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
 
                     fd = urllib2.urlopen(req)
-                    mod_src = open(config_dir + '/app/' + mod + '.py', 'w')
+                    mod_src = open(config_dir + '/modules/' + mod + '.py', 'w')
 
                     data = fd.read()
                     mod_src.write(data)
@@ -329,7 +329,7 @@ class Arsenic(irc.IRCClient):
                 elif msg.startswith('mod_reload'):
                     mod = msg.split(' ')[1]
 
-                    mod_src = open(config_dir + '/app/' + mod + '.py')
+                    mod_src = open(config_dir + '/modules/' + mod + '.py')
                     mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
                     mod_src.close()
 
@@ -349,7 +349,7 @@ class Arsenic(irc.IRCClient):
                 elif msg.startswith('mod_load'):
                     mod = msg.split(' ')[1]
 
-                    mod_src = open(config_dir + '/app/' + mod + '.py')
+                    mod_src = open(config_dir + '/modules/' + mod + '.py')
                     mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
                     mod_src.close()
 
@@ -699,7 +699,7 @@ if __name__ == '__main__':
             'arsenic takes a single argument, --config=/path/to/config/dir')
 
     for mod in modules:
-        mod_src = open(config_dir + '/app/' + mod + '.py')
+        mod_src = open(config_dir + '/modules/' + mod + '.py')
         mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
         mod_src.close()
 
