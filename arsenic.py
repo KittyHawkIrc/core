@@ -205,22 +205,24 @@ class Arsenic(irc.IRCClient):
             com = command
 
         if command.startswith(key) or (channel == self.nickname and auth):
-            try:
-                self.lockerbox[mod_declare_privmsg[com]]
-            except:
-                self.lockerbox[mod_declare_privmsg[com]] = self.persist()
 
-            #attributes
-            setattr(self, 'isop', auth)
-            setattr(self, 'isowner', owner)
-            setattr(self, 'type', 'privmsg')
-            setattr(self, 'command', com)
-            setattr(self, 'message', msg)
-            setattr(self, 'user', user)
-            setattr(self, 'channel', channel)
-            setattr(self, 'ver', VER)
-            setattr(self, 'store', self.save)
-            setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
+            if com in mod_declare_privmsg:
+                try:
+                    self.lockerbox[mod_declare_privmsg[com]]
+                except:
+                    self.lockerbox[mod_declare_privmsg[com]] = self.persist()
+
+                #attributes
+                setattr(self, 'isop', auth)
+                setattr(self, 'isowner', owner)
+                setattr(self, 'type', 'privmsg')
+                setattr(self, 'command', com)
+                setattr(self, 'message', msg)
+                setattr(self, 'user', user)
+                setattr(self, 'channel', channel)
+                setattr(self, 'ver', VER)
+                setattr(self, 'store', self.save)
+                setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
             log.msg(log_data)
