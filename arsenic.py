@@ -43,12 +43,12 @@ cfile.close()
 hostname = config.get('network', 'hostname')
 port = int(config.get('network', 'port'))
 
-oplist = config.get('main', 'op').translate(None, " ").split(',')
+oplist = config.get('main', 'op').replace(' ','').split(',')
 ownerlist = oplist
 
 
 modlook = {}
-modules = config.get('main', 'mod').translate(None, " ").split(',')
+modules = config.get('main', 'mod').replace(' ','').split(',')
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
@@ -58,7 +58,7 @@ channel_user = {}
 sync_channels = {}
 
 try:    #^help/etc
-    key = config.get('main', 'command_key').translate(None, "^")
+    key = config.get('main', 'command_key').replace('','^')
 except:
     key = '^'
 
@@ -194,6 +194,7 @@ class Arsenic(irc.IRCClient):
 
         command = msg.split(' ', 1)[0].lower()
 
+
         if channel in sync_channels:    #syncing
             u = user.split('!', 1)[0]
             self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
@@ -203,24 +204,26 @@ class Arsenic(irc.IRCClient):
         else:
             com = command
 
-        try:
-            self.lockerbox[mod_declare_privmsg[com]]
-        except:
-            self.lockerbox[mod_declare_privmsg[com]] = self.persist()
+        if command.startswith(key) or (channel == self.nickname and auth):
+            try:
+                self.lockerbox[mod_declare_privmsg[com]]
+            except:
+                self.lockerbox[mod_declare_privmsg[com]] = self.persist()
 
-        #attributes
-        setattr(self, 'isop', auth)
-        setattr(self, 'isowner', owner)
-        setattr(self, 'type', 'privmsg')
-        setattr(self, 'command', com)
-        setattr(self, 'message', msg)
-        setattr(self, 'user', user)
-        setattr(self, 'channel', channel)
-        setattr(self, 'ver', VER)
-        setattr(self, 'store', self.save)
-        setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
+            #attributes
+            setattr(self, 'isop', auth)
+            setattr(self, 'isowner', owner)
+            setattr(self, 'type', 'privmsg')
+            setattr(self, 'command', com)
+            setattr(self, 'message', msg)
+            setattr(self, 'user', user)
+            setattr(self, 'channel', channel)
+            setattr(self, 'ver', VER)
+            setattr(self, 'store', self.save)
+            setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
 
-        if channel == self.nickname:
+            log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
+            log.msg(log_data)
 
             if command in mod_declare_privmsg:
                 modlook[
@@ -409,7 +412,8 @@ class Arsenic(irc.IRCClient):
                     update = imp.new_module('update')
                     exec mod_bytecode in update.__dict__
 
-                    global VER
+                    global VER #screw this line
+
                     VER = '%s_->_%s' % (VER, update.VER)
                     old = self
                     self.__class__ = update.Arsenic
@@ -586,13 +590,11 @@ class Arsenic(irc.IRCClient):
                     self.signedOn()
                     isconnected = True #dirter hack, makes sure this only runs once
 
-                log_data = "Command: %s, user: %s, channel: %s, data: %s, victim: %s, server: %s" % (command, user, channel, data, victim, server)
-                log.msg(log_data)
-
                 if command == 'PING':
                     self.sendLine('PONG ' + server)
 
                 elif command == 'PRIVMSG': #privmsg(user, channel, msg)
+
                     self.privmsg(user, channel, data)
 
                 elif command == 'JOIN':
@@ -636,6 +638,10 @@ class Arsenic(irc.IRCClient):
                 elif command == 'KICK':
                     if victim.split('!') == self.nickname: #checks if we got kicked
                         self.kickedFrom(channel, victim, data)
+
+                else:
+                    print command
+                    print data
 
 
             elif line[1] == '353': #NAMES output
@@ -719,7 +725,7 @@ if __name__ == '__main__':
                 mod_declare_userjoin[i] = mod
 
     try:
-        channel_list = config.get('main', 'channel').translate(None, " ").split(',')
+        channel_list = config.get('main', 'channel').replace(' ','').split(',')
 
         f = ArsenicFactory(conn, channel_list[0], config.get('main', 'name'),
                           config.get('main', 'password'))
