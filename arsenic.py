@@ -30,7 +30,7 @@ pr = cProfile.Profile()
 
 VER = '1.0.0'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
-print "THE_KGB %s, log: %s" % (VER, file_log)
+print "KittyHawk %s, log: %s" % (VER, file_log)
 log.startLogging(open(file_log, 'w'))
 
 config_dir = ''
@@ -314,7 +314,7 @@ class Arsenic(irc.IRCClient):
                 elif msg.startswith('mod_inject'):
                     mod = msg.split(' ')[1]
                     url =  msg.split(' ')[2]
-                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:the_kgb:0.161 http://github.com/stqism/THE_KGB' })
+                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
 
                     fd = urllib2.urlopen(req)
                     mod_src = open(config_dir + '/app/' + mod + '.py', 'w')
@@ -373,8 +373,8 @@ class Arsenic(irc.IRCClient):
                     try:
                         url =  msg.split(' ')[1]
                     except:
-                        url = 'https://raw.githubusercontent.com/stqism/THE_KGB/master/arsenic.py'
-                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:the_kgb:0.161 http://github.com/stqism/THE_KGB' })
+                        url = 'https://raw.githubusercontent.com/KittyHawkIRC/core/master/arsenic.py'
+                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
 
                     fd = urllib2.urlopen(req)
                     mod_src = open(sys.argv[0], 'w')
@@ -446,7 +446,7 @@ class Arsenic(irc.IRCClient):
 
                 elif msg == 'help':
                     u = user.split('!', 1)[0]
-                    self.msg(u, 'THE_KGB Ver: %s' % (VER))
+                    self.msg(u, 'KittyHawk Ver: %s' % (VER))
                     self.msg(u, 'Howdy, %s, you silly operator.' % (u))
                     self.msg(u, 'You have access to the following commands:')
                     self.msg(u, 'add {command} {value}, del {command}')
@@ -460,7 +460,7 @@ class Arsenic(irc.IRCClient):
 
                 elif msg.startswith('help_sysop'):
                     u = user.split('!', 1)[0]
-                    self.msg(u, 'THE_KGB Ver: %s' % (VER))
+                    self.msg(u, 'KittyHawk Ver: %s' % (VER))
                     self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
                     self.msg(u, 'SysOP commands:')
                     self.msg(u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')

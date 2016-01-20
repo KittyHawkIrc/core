@@ -1,11 +1,10 @@
-Almost complete rewrite of THE_KGB, but not a rushed POS of code shoved on top of other code.
+KittyHawk is a modular IRC bot based off Arsenic.
 
-Features OSIRIS style modules and a minimal bloat free codebase.
+Note that while KittyHawk is a fork, it shares less than 0.3% of the same code.
 
+A list of modules is located [here](https://github.com/KittyHawkIrc/modules).
 
-
-It's still arsenic.py for throwback reasons.
-
+Module documentation is located [here](http://kittyhawkirc.github.io/modules/).
 
 to setup:
 ```sqlite3 arsenic.db < database.sql```
