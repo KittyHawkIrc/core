@@ -165,6 +165,11 @@ class Arsenic(irc.IRCClient):
         del user
     
     def syncmsg(self, cbuser, inchannel, outchannel):
+        try:
+            self.lockerbox['%s%s'%(inchannel,outchannel)]
+        except:
+            self.lockerbox['%s%s'%(inchannel,outchannel)] = self.persist()
+        
         setattr(self, 'type', 'syncmsg')
         setattr(self, 'message', msg)
         setattr(self, 'user', cbuser)
