@@ -172,7 +172,7 @@ class Arsenic(irc.IRCClient):
         setattr(self, 'outgoing_channel', outchannel)
         setattr(self, 'ver', VER)
         setattr(self, 'store', self.save)
-        setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
+        setattr(self, 'locker', self.lockerbox['%s%s'%(inchannel,outchannel)])
         
         for command in mod_declare_syncmsg:
             modlook[
