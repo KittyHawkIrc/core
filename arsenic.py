@@ -164,7 +164,7 @@ class Arsenic(irc.IRCClient):
         self.join(channel)
         del user
     
-    def syncmsg(self, cbuser, inchannel, outchannel):
+    def syncmsg(self, cbuser, inchannel, outchannel, msg):
         try:
             self.lockerbox['%s%s'%(inchannel,outchannel)]
         except:
