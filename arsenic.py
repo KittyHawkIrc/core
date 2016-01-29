@@ -228,7 +228,7 @@ class Arsenic(irc.IRCClient):
         if channel in sync_channels:    #syncing
             u = user.split('!', 1)[0]
             self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
-            self.syncmsg(self, user, channel, sync_channels[channel], msg)
+            self.syncmsg(user, channel, sync_channels[channel], msg)
 
         iskey = False
 
@@ -365,26 +365,6 @@ class Arsenic(irc.IRCClient):
                         fd.close()
                         mod_src.close()
 
-                    elif msg.startswith('mod_reload'):
-                        mod = msg.split(' ')[1]
-
-                        mod_src = open(config_dir + '/modules/' + mod + '.py')
-                        mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
-                        mod_src.close()
-
-                        exec mod_bytecode in modlook[mod].__dict__
-
-                        declare_table = modlook[mod].declare()
-
-                        for i in declare_table:
-                            cmd_check = declare_table[i]
-
-                            if cmd_check == 'privmsg':
-                                mod_declare_privmsg[i] = mod
-
-                            elif cmd_check == 'userjoin':
-                                mod_declare_userjoin[i] = mod
-
                     elif msg.startswith('mod_load'):
                         mod = msg.split(' ')[1]
 
@@ -407,6 +387,9 @@ class Arsenic(irc.IRCClient):
 
                             elif cmd_check == 'userjoin':
                                 mod_declare_userjoin[i] = mod
+
+                            elif cmd_check == 'syncmsg':
+                                mod_declare_syncmsg[i] = mod
 
                     elif msg.startswith('update_inject'):
                         try:
@@ -752,6 +735,9 @@ if __name__ == '__main__':
 
             elif cmd_check == 'userjoin':
                 mod_declare_userjoin[i] = mod
+
+            elif cmd_check == 'syncmsg':
+                mod_declare_syncmsg[i] = mod
 
     try:
         channel_list = config.get('main', 'channel').replace(' ','').split(',')
