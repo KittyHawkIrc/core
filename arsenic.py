@@ -29,10 +29,6 @@ from twisted.words.protocols import irc
 pr = cProfile.Profile()
 
 VER = '1.0.0'
-file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
-print "KittyHawk %s, log: %s" % (VER, file_log)
-#log.startLogging(open(file_log, 'w'))
-log.startLogging(sys.stdout)
 
 config_dir = ''
 
@@ -50,6 +46,19 @@ ownerlist = oplist
 
 modlook = {}
 modules = config.get('main', 'mod').replace(' ','').split(',')
+
+try:
+    debug = bool(config.get('main', 'debug'))
+except:
+    debug = False
+
+if debug:
+    log.startLogging(sys.stdout)
+    print "KittyHawk %s, log: %s" % (VER, 'stdout')
+else:
+    file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
+    print "KittyHawk %s, log: %s" % (VER, file_log)
+    log.startLogging(open(file_log, 'w'))
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
