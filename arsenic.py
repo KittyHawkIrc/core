@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.4'
+VER = '1.1.5'
 
 config_dir = ''
 
@@ -494,10 +494,6 @@ class Arsenic(irc.IRCClient):
                         mod_declare_privmsg[
                             command]].callback(
                         self)
-
-                else:
-                    u = user.split('!', 1)[0]
-                    self.msg(u, 'I only accept commands from bot operators')
 
             elif msg.startswith(key):
                 if command in mod_declare_privmsg:
