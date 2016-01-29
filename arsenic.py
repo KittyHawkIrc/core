@@ -225,10 +225,11 @@ class Arsenic(irc.IRCClient):
 
         command = msg.split(' ', 1)[0].lower()
 
-        if channel in sync_channels:    #syncing
+        lower_channel = channel.lower()
+        if lower_channel in sync_channels:    #syncing
             u = user.split('!', 1)[0]
-            self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
-            self.syncmsg(user, channel, sync_channels[channel], msg)
+            self.msg(sync_channels[lower_channel], '<%s> %s' % (u, msg))
+            self.syncmsg(user, lower_channel, sync_channels[lower_channel], msg)
 
         iskey = False
 
