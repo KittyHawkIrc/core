@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.2'
+VER = '1.1.3'
 
 config_dir = ''
 
@@ -491,6 +491,12 @@ class Arsenic(irc.IRCClient):
                         u = user.split('!', 1)[0]
                         for i in sync_channels:
                             self.msg(u, '%s -> %s' % (i, sync_channels[i]))
+
+                if command in mod_declare_privmsg:
+                    modlook[
+                        mod_declare_privmsg[
+                            command]].callback(
+                        self)
 
                 else:
                     u = user.split('!', 1)[0]
