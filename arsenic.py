@@ -31,8 +31,7 @@ pr = cProfile.Profile()
 VER = '1.0.0'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "KittyHawk %s, log: %s" % (VER, file_log)
-log.startLogging(sys.stdout)
-#log.startLogging(open(file_log, 'w'))
+log.startLogging(open(file_log, 'w'))
 
 config_dir = ''
 
