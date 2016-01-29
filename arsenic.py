@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.0'
+VER = '1.1.1'
 
 config_dir = ''
 
@@ -270,7 +270,7 @@ class Arsenic(irc.IRCClient):
                 if irc_relay != "":
                     self.msg(irc_relay, user + " said " + msg)
 
-                if auth:
+                if owner:
                     if msg.startswith('op'):
 
                         host = msg.split(' ', 1)[1]
@@ -301,36 +301,6 @@ class Arsenic(irc.IRCClient):
                                 1)[0],
                             'Removed user %s from the op list' %
                             (extname))
-
-                    elif msg.startswith('add'):
-
-                        cmd = msg.split(' ', 2)[1].lower()
-                        data = msg.split(' ', 2)[2]
-
-                        conn.execute(
-                            ('insert or replace into command(name, response) '
-                             'values (?, ?)'), (cmd, data))
-                        conn.commit()
-
-                        self.msg(
-                            user.split(
-                                '!', 1)[0], 'Added the command %s with value %s' %
-                            (cmd, data))
-
-                    elif msg.startswith('del'):
-
-                        cmd = msg.split(' ')[1].lower()
-
-                        conn.execute('delete from command where name = ?',
-                                     (cmd,))
-                        conn.commit()
-
-                        self.msg(
-                            user.split(
-                                '!',
-                                1)[0],
-                            'Removed command %s' %
-                            (cmd))
 
                     elif msg.startswith('prof_on'):
                         pr.enable()
@@ -446,6 +416,64 @@ class Arsenic(irc.IRCClient):
                     elif msg.startswith('raw'):
                         self.sendLine(msg.split(' ',1)[1])
 
+                    elif msg.startswith('help_sysop'):
+                        u = user.split('!', 1)[0]
+                        self.msg(u, 'KittyHawk Ver: %s' % (VER))
+                        self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
+                        self.msg(u, 'SysOP commands:')
+                        self.msg(u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
+                        self.msg(u, 'prof_on, prof_off (enable or disable profiling, DO NOT USE)')
+                        self.msg(u, 'restart, prof_stat (Restart or display profiling stats (see ^))')
+                        self.msg(u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
+                        self.msg(u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
+                        self.msg(u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
+                        self.msg(u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
+                        self.msg(u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
+
+                if auth:
+                    if msg.startswith('add'):
+
+                        cmd = msg.split(' ', 2)[1].lower()
+                        data = msg.split(' ', 2)[2]
+
+                        conn.execute(
+                            ('insert or replace into command(name, response) '
+                             'values (?, ?)'), (cmd, data))
+                        conn.commit()
+
+                        self.msg(
+                            user.split(
+                                '!', 1)[0], 'Added the command %s with value %s' %
+                            (cmd, data))
+
+                    elif msg.startswith('del'):
+
+                        cmd = msg.split(' ')[1].lower()
+
+                        conn.execute('delete from command where name = ?',
+                                     (cmd,))
+                        conn.commit()
+
+                        self.msg(
+                            user.split(
+                                '!',
+                                1)[0],
+                            'Removed command %s' %
+                            (cmd))
+
+                    elif msg == 'help':
+                        u = user.split('!', 1)[0]
+                        self.msg(u, 'KittyHawk Ver: %s' % (VER))
+                        self.msg(u, 'Howdy, %s, you silly operator.' % (u))
+                        self.msg(u, 'You have access to the following commands:')
+                        self.msg(u, 'add {command} {value}, del {command}')
+                        self.msg(u, 'join {channel}, leave {channel}')
+                        self.msg(u, 'nick {nickname}, topic {channel} {topic}')
+                        self.msg(u, 'kick {channel} {name} {optional reason}')
+                        self.msg(u, 'ban/unban {channel} {hostmask}')
+                        self.msg(u, 'sync {channel1} {channel2}, unsync {channel1}')
+                        self.msg(u, 'sync_list, msg {channel} {message}')
+
                     elif msg.startswith('sync'):
                         u = user.split('!', 1)[0]
                         ch1 = msg.split(' ')[1]
@@ -466,34 +494,6 @@ class Arsenic(irc.IRCClient):
                         u = user.split('!', 1)[0]
                         for i in sync_channels:
                             self.msg(u, '%s -> %s' % (i, sync_channels[i]))
-
-                    elif msg == 'help':
-                        u = user.split('!', 1)[0]
-                        self.msg(u, 'KittyHawk Ver: %s' % (VER))
-                        self.msg(u, 'Howdy, %s, you silly operator.' % (u))
-                        self.msg(u, 'You have access to the following commands:')
-                        self.msg(u, 'add {command} {value}, del {command}')
-                        self.msg(u, 'join {channel}, leave {channel}')
-                        self.msg(u, 'nick {nickname}, topic {channel} {topic}')
-                        self.msg(u, 'kick {channel} {name} {optional reason}')
-                        self.msg(u, 'ban/unban {channel} {hostmask}')
-                        self.msg(u, 'sync {channel1} {channel2}, unsync {channel1}')
-                        self.msg(u, 'sync_list, msg {channel} {message}')
-
-
-                    elif msg.startswith('help_sysop'):
-                        u = user.split('!', 1)[0]
-                        self.msg(u, 'KittyHawk Ver: %s' % (VER))
-                        self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
-                        self.msg(u, 'SysOP commands:')
-                        self.msg(u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
-                        self.msg(u, 'prof_on, prof_off (enable or disable profiling, DO NOT USE)')
-                        self.msg(u, 'restart, prof_stat (Restart or display profiling stats (see ^))')
-                        self.msg(u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
-                        self.msg(u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
-                        self.msg(u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
-                        self.msg(u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
-                        self.msg(u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
 
                 else:
                     u = user.split('!', 1)[0]
