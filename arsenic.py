@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.1'
+VER = '1.1.2'
 
 config_dir = ''
 
@@ -256,11 +256,8 @@ class Arsenic(irc.IRCClient):
                     self.lockerbox[mod_declare_privmsg[command]] = self.persist()
 
                 #attributes
-                try:
-                    setattr(self, 'store', self.save)
-                    setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
-                except:
-                    pass
+                setattr(self, 'store', self.save)
+                setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[command]])
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
             log.msg(log_data)
