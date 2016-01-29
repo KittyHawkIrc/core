@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.0.0'
+VER = '1.0.1'
 
 config_dir = ''
 
