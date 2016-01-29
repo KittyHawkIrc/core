@@ -31,7 +31,8 @@ pr = cProfile.Profile()
 VER = '1.0.0'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "KittyHawk %s, log: %s" % (VER, file_log)
-log.startLogging(open(file_log, 'w'))
+#log.startLogging(open(file_log, 'w'))
+log.startLogging(sys.stdout)
 
 config_dir = ''
 
@@ -163,13 +164,13 @@ class Arsenic(irc.IRCClient):
     def kickedFrom(self, channel, user, message):
         self.join(channel)
         del user
-    
+
     def syncmsg(self, cbuser, inchannel, outchannel, msg):
         try:
             self.lockerbox['%s%s'%(inchannel,outchannel)]
         except:
             self.lockerbox['%s%s'%(inchannel,outchannel)] = self.persist()
-        
+
         setattr(self, 'type', 'syncmsg')
         setattr(self, 'message', msg)
         setattr(self, 'user', cbuser)
@@ -178,12 +179,12 @@ class Arsenic(irc.IRCClient):
         setattr(self, 'ver', VER)
         setattr(self, 'store', self.save)
         setattr(self, 'locker', self.lockerbox['%s%s'%(inchannel,outchannel)])
-        
+
         for command in mod_declare_syncmsg:
             modlook[
-                mod_declare_privmsg[command]].callback(
+                mod_declare_syncmsg[command]].callback(
                 self)
-    
+
     def userJoined(self, cbuser, cbchannel):
         setattr(self, 'type', 'userjoin')
         setattr(self, 'user', cbuser)
