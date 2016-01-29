@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.3'
+VER = '1.1.4'
 
 config_dir = ''
 
@@ -398,9 +398,6 @@ class Arsenic(irc.IRCClient):
                         update = imp.new_module('update')
                         exec mod_bytecode in update.__dict__
 
-                        global VER #screw this line
-
-                        VER = '%s_->_%s' % (VER, update.VER)
                         old = self
                         self.__class__ = update.Arsenic
                         self = update.Arsenic(old)
