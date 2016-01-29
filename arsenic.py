@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.5'
+VER = '1.1.6'
 
 config_dir = ''
 
@@ -468,6 +468,11 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, 'sync {channel1} {channel2}, unsync {channel1}')
                         self.msg(u, 'sync_list, msg {channel} {message}')
 
+                    elif msg == 'sync_list':
+                        u = user.split('!', 1)[0]
+                        for i in sync_channels:
+                            self.msg(u, '%s -> %s' % (i, sync_channels[i]))
+
                     elif msg.startswith('sync'):
                         u = user.split('!', 1)[0]
                         ch1 = msg.split(' ')[1]
@@ -480,14 +485,12 @@ class Arsenic(irc.IRCClient):
                     elif msg.startswith('unsync'):
                         u = user.split('!', 1)[0]
                         ch1 = msg.split(' ')[1]
-                        del sync_channels[ch1]
 
-                        self.msg(u, '%s -> X' % (ch1))
-
-                    elif msg.startswith('sync_list'):
-                        u = user.split('!', 1)[0]
-                        for i in sync_channels:
-                            self.msg(u, '%s -> %s' % (i, sync_channels[i]))
+                        if ch1 in sync_channels:
+                            del sync_channels[ch1]
+                            self.msg(u, '%s -> X' % (ch1))
+                        else:
+                            self.msg(u, 'Channel not currently being synced')
 
                 if command in mod_declare_privmsg:
                     modlook[
