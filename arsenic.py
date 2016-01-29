@@ -228,7 +228,7 @@ class Arsenic(irc.IRCClient):
         if channel in sync_channels:    #syncing
             u = user.split('!', 1)[0]
             self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
-            syncmsg(self, user, channel, sync_channels[channel], msg)
+            self.syncmsg(self, user, channel, sync_channels[channel], msg)
 
         iskey = False
 
@@ -262,8 +262,8 @@ class Arsenic(irc.IRCClient):
                 except:
                     pass
 
-                log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
-                log.msg(log_data)
+            log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
+            log.msg(log_data)
 
             if channel == self.nickname:
                 # private commands
