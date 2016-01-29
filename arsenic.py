@@ -253,13 +253,8 @@ class Arsenic(irc.IRCClient):
                 except:
                     pass
 
-            log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
-            log.msg(log_data)
-
-            if command in mod_declare_privmsg:
-                modlook[
-                    mod_declare_privmsg[command]].callback(
-                    self)
+                log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
+                log.msg(log_data)
 
             if channel == self.nickname:
                 # private commands
