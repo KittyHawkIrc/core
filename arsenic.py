@@ -31,7 +31,8 @@ pr = cProfile.Profile()
 VER = '1.0.0'
 file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
 print "KittyHawk %s, log: %s" % (VER, file_log)
-log.startLogging(open(file_log, 'w'))
+log.startLogging(sys.stdout)
+#log.startLogging(open(file_log, 'w'))
 
 config_dir = ''
 
@@ -190,7 +191,7 @@ class Arsenic(irc.IRCClient):
         auth = self.checkauth(user)
         owner = self.checkowner(user)
 
-# Start module execution
+        # Start module execution
 
         command = msg.split(' ', 1)[0].lower()
 
@@ -199,30 +200,37 @@ class Arsenic(irc.IRCClient):
             u = user.split('!', 1)[0]
             self.msg(sync_channels[channel], '<%s> %s' % (u, msg))
 
+        iskey = False
+
         if command.startswith(key):
-            com = command.split(key, 1)[1]
+            command = command.split(key, 1)[1]
+            iskey = True
         else:
-            com = command
+            command = command
 
-        if command.startswith(key) or (channel == self.nickname and auth):
+        if iskey or (channel == self.nickname and auth):
 
-            if com in mod_declare_privmsg:
+            setattr(self, 'isop', auth)
+            setattr(self, 'isowner', owner)
+            setattr(self, 'type', 'privmsg')
+            setattr(self, 'command', command)
+            setattr(self, 'message', msg)
+            setattr(self, 'user', user)
+            setattr(self, 'channel', channel)
+            setattr(self, 'ver', VER)
+
+            if command in mod_declare_privmsg:
                 try:
-                    self.lockerbox[mod_declare_privmsg[com]]
+                    self.lockerbox[mod_declare_privmsg[command]]
                 except:
-                    self.lockerbox[mod_declare_privmsg[com]] = self.persist()
+                    self.lockerbox[mod_declare_privmsg[command]] = self.persist()
 
                 #attributes
-                setattr(self, 'isop', auth)
-                setattr(self, 'isowner', owner)
-                setattr(self, 'type', 'privmsg')
-                setattr(self, 'command', com)
-                setattr(self, 'message', msg)
-                setattr(self, 'user', user)
-                setattr(self, 'channel', channel)
-                setattr(self, 'ver', VER)
-                setattr(self, 'store', self.save)
-                setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
+                try:
+                    setattr(self, 'store', self.save)
+                    setattr(self, 'locker', self.lockerbox[mod_declare_privmsg[com]])
+                except:
+                    pass
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
             log.msg(log_data)
@@ -232,293 +240,292 @@ class Arsenic(irc.IRCClient):
                     mod_declare_privmsg[command]].callback(
                     self)
 
-            # private commands
-            if irc_relay != "":
-                self.msg(irc_relay, user + " said " + msg)
+            if channel == self.nickname:
+                # private commands
+                if irc_relay != "":
+                    self.msg(irc_relay, user + " said " + msg)
 
-            if auth:
-                if msg.startswith('op'):
+                if auth:
+                    if msg.startswith('op'):
 
-                    host = msg.split(' ', 1)[1]
-                    extname = host.split('!', 1)[0]
-                    c = conn.execute('insert into op(username) values (?)',
-                                     (host.split('!', 1)[1],))
-                    conn.commit()
+                        host = msg.split(' ', 1)[1]
+                        extname = host.split('!', 1)[0]
+                        c = conn.execute('insert into op(username) values (?)',
+                                         (host.split('!', 1)[1],))
+                        conn.commit()
 
-                    self.msg(
-                        user.split(
-                            '!',
-                            1)[0],
-                        'Added user %s to the op list' %
-                        (extname))
-                    self.msg(extname, "You've been added to my op list")
+                        self.msg(
+                            user.split(
+                                '!',
+                                1)[0],
+                            'Added user %s to the op list' %
+                            (extname))
+                        self.msg(extname, "You've been added to my op list")
 
-                elif msg.startswith('deop'):
+                    elif msg.startswith('deop'):
 
-                    host = msg.split(' ', 1)[1]
-                    extname = host.split('!', 1)[0]
-                    c = conn.execute('delete from op where username = ?',
-                                     (host.split('!', 1)[1],))
-                    conn.commit()
+                        host = msg.split(' ', 1)[1]
+                        extname = host.split('!', 1)[0]
+                        c = conn.execute('delete from op where username = ?',
+                                         (host.split('!', 1)[1],))
+                        conn.commit()
 
-                    self.msg(
-                        user.split(
-                            '!',
-                            1)[0],
-                        'Removed user %s from the op list' %
-                        (extname))
+                        self.msg(
+                            user.split(
+                                '!',
+                                1)[0],
+                            'Removed user %s from the op list' %
+                            (extname))
 
-                elif msg.startswith('add'):
+                    elif msg.startswith('add'):
 
-                    cmd = msg.split(' ', 2)[1].lower()
-                    data = msg.split(' ', 2)[2]
+                        cmd = msg.split(' ', 2)[1].lower()
+                        data = msg.split(' ', 2)[2]
 
-                    conn.execute(
-                        ('insert or replace into command(name, response) '
-                         'values (?, ?)'), (cmd, data))
-                    conn.commit()
+                        conn.execute(
+                            ('insert or replace into command(name, response) '
+                             'values (?, ?)'), (cmd, data))
+                        conn.commit()
 
-                    self.msg(
-                        user.split(
-                            '!', 1)[0], 'Added the command %s with value %s' %
-                        (cmd, data))
+                        self.msg(
+                            user.split(
+                                '!', 1)[0], 'Added the command %s with value %s' %
+                            (cmd, data))
 
-                elif msg.startswith('del'):
+                    elif msg.startswith('del'):
 
-                    cmd = msg.split(' ')[1].lower()
+                        cmd = msg.split(' ')[1].lower()
 
-                    conn.execute('delete from command where name = ?',
-                                 (cmd,))
-                    conn.commit()
+                        conn.execute('delete from command where name = ?',
+                                     (cmd,))
+                        conn.commit()
 
-                    self.msg(
-                        user.split(
-                            '!',
-                            1)[0],
-                        'Removed command %s' %
-                        (cmd))
+                        self.msg(
+                            user.split(
+                                '!',
+                                1)[0],
+                            'Removed command %s' %
+                            (cmd))
 
-                elif msg.startswith('prof_on'):
-                    pr.enable()
-                    u = user.split('!', 1)[0]
-                    self.msg(u, 'profiling on')
+                    elif msg.startswith('prof_on'):
+                        pr.enable()
+                        u = user.split('!', 1)[0]
+                        self.msg(u, 'profiling on')
 
-                elif msg.startswith('prof_off'):
-                    pr.disable()
-                    u = user.split('!', 1)[0]
-                    self.msg(u, 'profiling off')
+                    elif msg.startswith('prof_off'):
+                        pr.disable()
+                        u = user.split('!', 1)[0]
+                        self.msg(u, 'profiling off')
 
-                elif msg.startswith('prof_stat'):
-                    u = user.split('!', 1)[0]
-                    s = StringIO.StringIO()
-                    sortby = 'cumulative'
-                    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-                    ps.print_stats()
-                    self.msg(u, s.getvalue())
+                    elif msg.startswith('prof_stat'):
+                        u = user.split('!', 1)[0]
+                        s = StringIO.StringIO()
+                        sortby = 'cumulative'
+                        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+                        ps.print_stats()
+                        self.msg(u, s.getvalue())
 
-                elif msg.startswith('mod_inject'):
-                    mod = msg.split(' ')[1]
-                    url =  msg.split(' ')[2]
-                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
+                    elif msg.startswith('mod_inject'):
+                        mod = msg.split(' ')[1]
+                        url =  msg.split(' ')[2]
+                        req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
 
-                    fd = urllib2.urlopen(req)
-                    mod_src = open(config_dir + '/modules/' + mod + '.py', 'w')
+                        fd = urllib2.urlopen(req)
+                        mod_src = open(config_dir + '/modules/' + mod + '.py', 'w')
 
-                    data = fd.read()
-                    mod_src.write(data)
-                    os.fsync(mod_src)
+                        data = fd.read()
+                        mod_src.write(data)
+                        os.fsync(mod_src)
 
-                    fd.close()
-                    mod_src.close()
+                        fd.close()
+                        mod_src.close()
 
-                elif msg.startswith('mod_reload'):
-                    mod = msg.split(' ')[1]
+                    elif msg.startswith('mod_reload'):
+                        mod = msg.split(' ')[1]
 
-                    mod_src = open(config_dir + '/modules/' + mod + '.py')
-                    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
-                    mod_src.close()
+                        mod_src = open(config_dir + '/modules/' + mod + '.py')
+                        mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+                        mod_src.close()
 
-                    exec mod_bytecode in modlook[mod].__dict__
+                        exec mod_bytecode in modlook[mod].__dict__
 
-                    declare_table = modlook[mod].declare()
+                        declare_table = modlook[mod].declare()
 
-                    for i in declare_table:
-                        cmd_check = declare_table[i]
+                        for i in declare_table:
+                            cmd_check = declare_table[i]
 
-                        if cmd_check == 'privmsg':
-                            mod_declare_privmsg[i] = mod
+                            if cmd_check == 'privmsg':
+                                mod_declare_privmsg[i] = mod
 
-                        elif cmd_check == 'userjoin':
-                            mod_declare_userjoin[i] = mod
+                            elif cmd_check == 'userjoin':
+                                mod_declare_userjoin[i] = mod
 
-                elif msg.startswith('mod_load'):
-                    mod = msg.split(' ')[1]
+                    elif msg.startswith('mod_load'):
+                        mod = msg.split(' ')[1]
 
-                    mod_src = open(config_dir + '/modules/' + mod + '.py')
-                    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
-                    mod_src.close()
+                        mod_src = open(config_dir + '/modules/' + mod + '.py')
+                        mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+                        mod_src.close()
 
-                    modlook[mod] = imp.new_module(mod)
-                    sys.modules[mod] = modlook[mod]
+                        modlook[mod] = imp.new_module(mod)
+                        sys.modules[mod] = modlook[mod]
 
-                    exec mod_bytecode in modlook[mod].__dict__
+                        exec mod_bytecode in modlook[mod].__dict__
 
-                    declare_table = modlook[mod].declare()
+                        declare_table = modlook[mod].declare()
 
-                    for i in declare_table:
-                        cmd_check = declare_table[i]
+                        for i in declare_table:
+                            cmd_check = declare_table[i]
 
-                        if cmd_check == 'privmsg':
-                            mod_declare_privmsg[i] = mod
+                            if cmd_check == 'privmsg':
+                                mod_declare_privmsg[i] = mod
 
-                        elif cmd_check == 'userjoin':
-                            mod_declare_userjoin[i] = mod
+                            elif cmd_check == 'userjoin':
+                                mod_declare_userjoin[i] = mod
 
-                elif msg.startswith('update_inject'):
-                    try:
-                        url =  msg.split(' ')[1]
-                    except:
-                        url = 'https://raw.githubusercontent.com/KittyHawkIRC/core/master/arsenic.py'
-                    req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
+                    elif msg.startswith('update_inject'):
+                        try:
+                            url =  msg.split(' ')[1]
+                        except:
+                            url = 'https://raw.githubusercontent.com/KittyHawkIRC/core/master/arsenic.py'
+                        req = urllib2.Request(url, headers={ 'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC' })
 
-                    fd = urllib2.urlopen(req)
-                    mod_src = open(sys.argv[0], 'w')
+                        fd = urllib2.urlopen(req)
+                        mod_src = open(sys.argv[0], 'w')
 
-                    data = fd.read()
-                    mod_src.write(data)
-                    os.fsync(mod_src)
+                        data = fd.read()
+                        mod_src.write(data)
+                        os.fsync(mod_src)
 
-                    fd.close()
-                    mod_src.close()
+                        fd.close()
+                        mod_src.close()
 
-                elif msg.startswith('update_restart'):
-                    u = user.split('!', 1)[0]
-                    try:
+                    elif msg.startswith('update_restart'):
+                        u = user.split('!', 1)[0]
+                        try:
+                            mod_src = open(sys.argv[0])
+                            compile(mod_src.read(), '<string>', 'exec') #syntax testing
+
+                            args = sys.argv[:]
+                            args.insert(0, sys.executable)
+                            #os.chdir(_startup_cwd)
+                            os.execv(sys.executable, args)
+                        except:
+                            self.msg(u, 'Syntax error!')
+
+
+                    elif msg.startswith('update_patch'):
+                        u = user.split('!', 1)[0]
                         mod_src = open(sys.argv[0])
-                        compile(mod_src.read(), '<string>', 'exec') #syntax testing
+                        mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+                        mod_src.close()
 
-                        args = sys.argv[:]
-                        args.insert(0, sys.executable)
-                        #os.chdir(_startup_cwd)
-                        os.execv(sys.executable, args)
-                    except:
-                        self.msg(u, 'Syntax error!')
+                        update = imp.new_module('update')
+                        exec mod_bytecode in update.__dict__
+
+                        global VER #screw this line
+
+                        VER = '%s_->_%s' % (VER, update.VER)
+                        old = self
+                        self.__class__ = update.Arsenic
+                        self = update.Arsenic(old)
+
+                        self.msg(u, 'Attempted runtime patching (%s)' % (VER))
+
+                    elif msg.startswith('inject'):
+                        self.lineReceived(msg.split(' ',1)[1])
+
+                    elif msg.startswith('raw'):
+                        self.sendLine(msg.split(' ',1)[1])
+
+                    elif msg.startswith('sync'):
+                        u = user.split('!', 1)[0]
+                        ch1 = msg.split(' ')[1]
+                        ch2 = msg.split(' ')[2]
+
+                        sync_channels[ch1] = ch2
+
+                        self.msg(u, '%s -> %s' % (ch1, ch2))
+
+                    elif msg.startswith('unsync'):
+                        u = user.split('!', 1)[0]
+                        ch1 = msg.split(' ')[1]
+                        del sync_channels[ch1]
+
+                        self.msg(u, '%s -> X' % (ch1))
+
+                    elif msg.startswith('sync_list'):
+                        u = user.split('!', 1)[0]
+                        for i in sync_channels:
+                            self.msg(u, '%s -> %s' % (i, sync_channels[i]))
+
+                    elif msg == 'help':
+                        u = user.split('!', 1)[0]
+                        self.msg(u, 'KittyHawk Ver: %s' % (VER))
+                        self.msg(u, 'Howdy, %s, you silly operator.' % (u))
+                        self.msg(u, 'You have access to the following commands:')
+                        self.msg(u, 'add {command} {value}, del {command}')
+                        self.msg(u, 'join {channel}, leave {channel}')
+                        self.msg(u, 'nick {nickname}, topic {channel} {topic}')
+                        self.msg(u, 'kick {channel} {name} {optional reason}')
+                        self.msg(u, 'ban/unban {channel} {hostmask}')
+                        self.msg(u, 'sync {channel1} {channel2}, unsync {channel1}')
+                        self.msg(u, 'sync_list, msg {channel} {message}')
 
 
-                elif msg.startswith('update_patch'):
+                    elif msg.startswith('help_sysop'):
+                        u = user.split('!', 1)[0]
+                        self.msg(u, 'KittyHawk Ver: %s' % (VER))
+                        self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
+                        self.msg(u, 'SysOP commands:')
+                        self.msg(u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
+                        self.msg(u, 'prof_on, prof_off (enable or disable profiling, DO NOT USE)')
+                        self.msg(u, 'restart, prof_stat (Restart or display profiling stats (see ^))')
+                        self.msg(u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
+                        self.msg(u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
+                        self.msg(u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
+                        self.msg(u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
+                        self.msg(u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
+
+                else:
                     u = user.split('!', 1)[0]
-                    mod_src = open(sys.argv[0])
-                    mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
-                    mod_src.close()
+                    self.msg(u, 'I only accept commands from bot operators')
 
-                    update = imp.new_module('update')
-                    exec mod_bytecode in update.__dict__
+            elif msg.startswith(key):
+                if command in mod_declare_privmsg:
+                    modlook[
+                        mod_declare_privmsg[
+                            command]].callback(
+                        self)
 
-                    global VER #screw this line
-
-                    VER = '%s_->_%s' % (VER, update.VER)
-                    old = self
-                    self.__class__ = update.Arsenic
-                    self = update.Arsenic(old)
-
-                    self.msg(u, 'Attempted runtime patching (%s)' % (VER))
-
-                elif msg.startswith('inject'):
-                    self.lineReceived(msg.split(' ',1)[1])
-
-                elif msg.startswith('raw'):
-                    self.sendLine(msg.split(' ',1)[1])
-
-                elif msg.startswith('sync'):
+                elif msg.startswith(key + 'help'):
                     u = user.split('!', 1)[0]
-                    ch1 = msg.split(' ')[1]
-                    ch2 = msg.split(' ')[2]
 
-                    sync_channels[ch1] = ch2
+                    commands = []
+                    c = conn.execute('select name from command')
+                    for cmd in modules:
+                        commands.append(key + cmd)
 
-                    self.msg(u, '%s -> %s' % (ch1, ch2))
+                    for command in c:
+                        commands.append(key + str(command[0]))
 
-                elif msg.startswith('unsync'):
-                    u = user.split('!', 1)[0]
-                    ch1 = msg.split(' ')[1]
-                    del sync_channels[ch1]
-
-                    self.msg(u, '%s -> X' % (ch1))
-
-                elif msg.startswith('sync_list'):
-                    u = user.split('!', 1)[0]
-                    for i in sync_channels:
-                        self.msg(u, '%s -> %s' % (i, sync_channels[i]))
-
-                elif msg == 'help':
-                    u = user.split('!', 1)[0]
-                    self.msg(u, 'KittyHawk Ver: %s' % (VER))
-                    self.msg(u, 'Howdy, %s, you silly operator.' % (u))
+                    self.msg(u, 'Howdy, %s' % (u))
                     self.msg(u, 'You have access to the following commands:')
-                    self.msg(u, 'add {command} {value}, del {command}')
-                    self.msg(u, 'join {channel}, leave {channel}')
-                    self.msg(u, 'nick {nickname}, topic {channel} {topic}')
-                    self.msg(u, 'kick {channel} {name} {optional reason}')
-                    self.msg(u, 'ban/unban {channel} {hostmask}')
-                    self.msg(u, 'sync {channel1} {channel2}, unsync {channel1}')
-                    self.msg(u, 'sync_list, msg {channel} {message}')
 
+                    self.msg(u, ', '.join(commands))
 
-                elif msg.startswith('help_sysop'):
-                    u = user.split('!', 1)[0]
-                    self.msg(u, 'KittyHawk Ver: %s' % (VER))
-                    self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
-                    self.msg(u, 'SysOP commands:')
-                    self.msg(u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
-                    self.msg(u, 'prof_on, prof_off (enable or disable profiling, DO NOT USE)')
-                    self.msg(u, 'restart, prof_stat (Restart or display profiling stats (see ^))')
-                    self.msg(u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
-                    self.msg(u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
-                    self.msg(u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
-                    self.msg(u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
-                    self.msg(u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
+                else:
+                    c = conn.execute(
+                        'select response from command where name == ?', (command,))
 
-            else:
-                u = user.split('!', 1)[0]
-                self.msg(u, 'I only accept commands from bot operators')
+                    r = c.fetchone()
+                    if r is not None:
+                        try:
+                            u = msg.split(' ')[1]
+                            self.msg(channel, "%s: %s" % (u, str(r[0])))
 
-        elif msg.startswith(key):
-            command_short = command.split(key, 1)[1]
-            if command_short in mod_declare_privmsg:
-                modlook[
-                    mod_declare_privmsg[
-                        command_short]].callback(
-                    self)
-
-            elif msg.startswith(key + 'help'):
-                u = user.split('!', 1)[0]
-
-                commands = []
-                c = conn.execute('select name from command')
-                for cmd in modules:
-                    commands.append(key + cmd)
-
-                for command in c:
-                    commands.append(key + str(command[0]))
-
-                self.msg(u, 'Howdy, %s' % (u))
-                self.msg(u, 'You have access to the following commands:')
-
-                self.msg(u, ', '.join(commands))
-
-            else:
-                command = command.split(key, 1)[1]
-                c = conn.execute(
-                    'select response from command where name == ?', (command,))
-
-                r = c.fetchone()
-                if r is not None:
-                    try:
-                        u = msg.split(' ')[1]
-                        self.msg(channel, "%s: %s" % (u, str(r[0])))
-
-                    except:
-                        self.msg(channel, str(r[0]))
+                        except:
+                            self.msg(channel, str(r[0]))
 
 
     def lineReceived(self, line): #ACTUAL WORK
