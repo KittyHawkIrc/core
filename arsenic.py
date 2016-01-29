@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.6'
+VER = '1.1.7'
 
 config_dir = ''
 
@@ -475,8 +475,8 @@ class Arsenic(irc.IRCClient):
 
                     elif msg.startswith('sync'):
                         u = user.split('!', 1)[0]
-                        ch1 = msg.split(' ')[1]
-                        ch2 = msg.split(' ')[2]
+                        ch1 = msg.split(' ')[1].lower()
+                        ch2 = msg.split(' ')[2].lower()
 
                         sync_channels[ch1] = ch2
 
@@ -484,7 +484,7 @@ class Arsenic(irc.IRCClient):
 
                     elif msg.startswith('unsync'):
                         u = user.split('!', 1)[0]
-                        ch1 = msg.split(' ')[1]
+                        ch1 = msg.split(' ')[1].lower()
 
                         if ch1 in sync_channels:
                             del sync_channels[ch1]
@@ -499,6 +499,11 @@ class Arsenic(irc.IRCClient):
                         self)
 
             elif msg.startswith(key):
+                if channel == '#fatpeoplehate':
+                    return
+                if channel == '#FatPeopleHate':
+                    return
+
                 if command in mod_declare_privmsg:
                     modlook[
                         mod_declare_privmsg[
