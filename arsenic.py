@@ -574,16 +574,16 @@ class Arsenic(irc.IRCClient):
 
                     r = c.fetchone()
                     if r is not None:
+                        rs = str(r[0])
+                        if rs.startswith('!'):
+                            rs = encoder.decode(rs)
+
                         try:
                             u = msg.split(' ')[1]
-                            rs = str(r[0])
-                            if rs.startswith('!'):
-                                rs = encoder.decode(rs)
-
                             self.msg(channel, "%s: %s" % (u, rs))
 
                         except:
-                            self.msg(channel, str(r[0]))
+                            self.msg(channel, rs)
 
 
     def lineReceived(self, line): #ACTUAL WORK
