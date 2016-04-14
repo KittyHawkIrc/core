@@ -445,6 +445,8 @@ class Arsenic(irc.IRCClient):
                              'values (?, ?)'), (cmd, data))
                         conn.commit()
 
+                        if data.startswith('!'):
+                            data = encoder.decode(data)
                         self.msg(
                             user.split(
                                 '!', 1)[0], 'Added the command %s with value %s' %
