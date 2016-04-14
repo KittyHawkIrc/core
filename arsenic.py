@@ -138,10 +138,10 @@ class Arsenic(irc.IRCClient):
 
         if c is not None:
 
-            for user in oplist:
-                if user.startswith('!'):
-                    oplist.remove(user)
-                    oplist.add(encoder.decode(user))
+            #for user in oplist:    #disabled as this is a major DoS
+            #    if user.startswith('!'):
+            #        oplist.remove(user)
+            #        oplist.add(encoder.decode(user))
 
             if user_host in oplist:
                 return True
@@ -560,7 +560,7 @@ class Arsenic(irc.IRCClient):
                         cmd = str(command[0])
                         if cmd.startswith('!'):
                             cmd = encoder.decode(cmd)
-                            
+
                         commands.append(key + cmd)
 
                     self.msg(u, 'Howdy, %s' % (u))
@@ -576,7 +576,11 @@ class Arsenic(irc.IRCClient):
                     if r is not None:
                         try:
                             u = msg.split(' ')[1]
-                            self.msg(channel, "%s: %s" % (u, str(r[0])))
+                            rs = str(r[0])
+                            if rs.startswith('!'):
+                                rs = encoder.decode(rs)
+
+                            self.msg(channel, "%s: %s" % (u, rs))
 
                         except:
                             self.msg(channel, str(r[0]))
