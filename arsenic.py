@@ -28,7 +28,7 @@ from twisted.words.protocols import irc
 
 pr = cProfile.Profile()
 
-VER = '1.1.8'
+VER = '1.2.0'
 
 config_dir = ''
 
@@ -189,7 +189,7 @@ class Arsenic(irc.IRCClient):
             except:
                 self.lockerbox[command] = self.persist()
             setattr(self, 'locker', self.lockerbox[command])
-            
+
             modlook[
                 mod_declare_syncmsg[command]].callback(
                 self)
@@ -207,6 +207,7 @@ class Arsenic(irc.IRCClient):
 
 
     def privmsg(self, user, channel, msg):
+
         try:
             user = user.split(key, 1)[0]
         except:
@@ -492,6 +493,32 @@ class Arsenic(irc.IRCClient):
                             self.msg(u, '%s -> X' % (ch1))
                         else:
                             self.msg(u, 'Channel not currently being synced')
+
+                    elif msg.startswith('mod_update'):
+                        u = user.split('!', 1)[0]
+                        mod = msg.split(' ')[1]
+
+                        if not mod in modlook:
+                            self.msg(u, 'Unknown module! (%s)' % (mod))
+                            return
+
+                        try:
+                            url = modlook[mod].__url__
+                        except:
+                            self.msg(u, 'Error, module lacks update schema')
+                            return
+
+                        try:
+                            op = 'fake!' + ownerlist[0] #Impersonate the first owner, yolo
+                        except:
+                            self.msg(u, 'Error, no owners are defined')
+                            return
+
+                        inject = 'mod_inject %s %s' % (mod, url)
+                        load = 'mod_load %s' % (mod)
+
+                        self.privmsg(op, channel, inject)  #It's dirty, but
+                        self.privmsg(op, channel, load)  #this shit works
 
                 if command in mod_declare_privmsg:
                     modlook[
