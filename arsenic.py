@@ -427,7 +427,6 @@ class Arsenic(irc.IRCClient):
 
                         cmd = msg.split(' ', 2)[1].lower()
                         data = msg.split(' ', 2)[2]
-
                         conn.execute(
                             ('insert or replace into command(name, response) '
                              'values (?, ?)'), (cmd, data))
@@ -472,6 +471,9 @@ class Arsenic(irc.IRCClient):
                     elif msg.startswith('sync'):
                         ch1 = msg.split(' ')[1].lower()
                         ch2 = msg.split(' ')[2].lower()
+
+                        if ch1 in sync_channels:
+                            self.msg(u, 'WARNING: %s already syncs to %s, overridden' % (ch1, sync_channels[ch1]))
 
                         sync_channels[ch1] = ch2
 
