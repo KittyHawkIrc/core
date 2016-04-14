@@ -305,16 +305,13 @@ class Arsenic(irc.IRCClient):
 
                     elif msg.startswith('prof_on'):
                         pr.enable()
-                        u = user.split('!', 1)[0]
                         self.msg(u, 'profiling on')
 
                     elif msg.startswith('prof_off'):
                         pr.disable()
-                        u = user.split('!', 1)[0]
                         self.msg(u, 'profiling off')
 
                     elif msg.startswith('prof_stat'):
-                        u = user.split('!', 1)[0]
                         s = StringIO.StringIO()
                         sortby = 'cumulative'
                         ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
@@ -380,7 +377,6 @@ class Arsenic(irc.IRCClient):
                         mod_src.close()
 
                     elif msg.startswith('update_restart'):
-                        u = user.split('!', 1)[0]
                         try:
                             mod_src = open(sys.argv[0])
                             compile(mod_src.read(), '<string>', 'exec') #syntax testing
@@ -394,7 +390,6 @@ class Arsenic(irc.IRCClient):
 
 
                     elif msg.startswith('update_patch'):
-                        u = user.split('!', 1)[0]
                         mod_src = open(sys.argv[0])
                         mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
                         mod_src.close()
@@ -415,7 +410,6 @@ class Arsenic(irc.IRCClient):
                         self.sendLine(msg.split(' ',1)[1])
 
                     elif msg.startswith('help_sysop'):
-                        u = user.split('!', 1)[0]
                         self.msg(u, 'KittyHawk Ver: %s' % (VER))
                         self.msg(u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
                         self.msg(u, 'SysOP commands:')
@@ -460,7 +454,6 @@ class Arsenic(irc.IRCClient):
                             (cmd))
 
                     elif msg == 'help':
-                        u = user.split('!', 1)[0]
                         self.msg(u, 'KittyHawk Ver: %s' % (VER))
                         self.msg(u, 'Howdy, %s, you silly operator.' % (u))
                         self.msg(u, 'You have access to the following commands:')
@@ -473,12 +466,10 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, 'sync_list, msg {channel} {message}')
 
                     elif msg == 'sync_list':
-                        u = user.split('!', 1)[0]
                         for i in sync_channels:
                             self.msg(u, '%s -> %s' % (i, sync_channels[i]))
 
                     elif msg.startswith('sync'):
-                        u = user.split('!', 1)[0]
                         ch1 = msg.split(' ')[1].lower()
                         ch2 = msg.split(' ')[2].lower()
 
@@ -487,7 +478,6 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, '%s -> %s' % (ch1, ch2))
 
                     elif msg.startswith('unsync'):
-                        u = user.split('!', 1)[0]
                         ch1 = msg.split(' ')[1].lower()
 
                         if ch1 in sync_channels:
@@ -521,9 +511,9 @@ class Arsenic(irc.IRCClient):
                         try:
                             self.privmsg(op, channel, inject)  #It's dirty, but
                             self.privmsg(op, channel, load)  #this shit works
-                            self.msg(u, 'Module updated!')
+                            self.msg(u, 'Module updated')
                         except:
-                            self.msg(u, an error occured updating the module')
+                            self.msg(u, 'an error occured updating the module')
 
                 if command in mod_declare_privmsg:
                     modlook[
@@ -544,7 +534,6 @@ class Arsenic(irc.IRCClient):
                         self)
 
                 elif msg.startswith(key + 'help'):
-                    u = user.split('!', 1)[0]
 
                     commands = []
                     c = conn.execute('select name from command')
