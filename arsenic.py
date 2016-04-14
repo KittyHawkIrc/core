@@ -276,9 +276,10 @@ class Arsenic(irc.IRCClient):
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (command, user, channel, msg)
             log.msg(log_data)
 
+            u = user.split('!', 1)[0]
+
             if channel == self.nickname:
                 # private commands
-                u = user.split('!', 1)[0]
 
                 if irc_relay != "":
                     self.msg(irc_relay, user + " said " + msg)
