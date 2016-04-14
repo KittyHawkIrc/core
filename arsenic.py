@@ -266,6 +266,8 @@ class Arsenic(irc.IRCClient):
 
             if channel == self.nickname:
                 # private commands
+                u = user.split('!', 1)[0]
+
                 if irc_relay != "":
                     self.msg(irc_relay, user + " said " + msg)
 
@@ -495,7 +497,6 @@ class Arsenic(irc.IRCClient):
                             self.msg(u, 'Channel not currently being synced')
 
                     elif msg.startswith('mod_update'):
-                        u = user.split('!', 1)[0]
                         mod = msg.split(' ')[1]
 
                         if not mod in modlook:
@@ -517,8 +518,12 @@ class Arsenic(irc.IRCClient):
                         inject = 'mod_inject %s %s' % (mod, url)
                         load = 'mod_load %s' % (mod)
 
-                        self.privmsg(op, channel, inject)  #It's dirty, but
-                        self.privmsg(op, channel, load)  #this shit works
+                        try:
+                            self.privmsg(op, channel, inject)  #It's dirty, but
+                            self.privmsg(op, channel, load)  #this shit works
+                            self.msg(u, 'Module updated!')
+                        except:
+                            self.msg(u, an error occured updating the module')
 
                 if command in mod_declare_privmsg:
                     modlook[
