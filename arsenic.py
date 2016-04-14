@@ -26,6 +26,8 @@ from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
 
+import encoder #Local module, can be overridden with mod_load
+
 pr = cProfile.Profile()
 
 VER = '1.2.0'
@@ -40,7 +42,13 @@ cfile.close()
 hostname = config.get('network', 'hostname')
 port = int(config.get('network', 'port'))
 
-oplist = config.get('main', 'op').replace(' ','').split(',')
+
+
+oplist = set(config.get('main', 'op').replace(' ','').split(','))
+for user in oplist:
+    if user.startswith('!'):
+        oplist.remove(user)
+        oplist.add(encoder.decode(user))
 ownerlist = oplist
 
 
@@ -97,7 +105,6 @@ class conf(Exception):
 
     """Automatically generated"""
 
-
 class Arsenic(irc.IRCClient):
 
     """Twisted callbacks registered here"""
@@ -130,6 +137,11 @@ class Arsenic(irc.IRCClient):
             c = None
 
         if c is not None:
+
+            for user in oplist:
+                if user.startswith('!'):
+                    oplist.remove(user)
+                    oplist.add(encoder.decode(user))
 
             if user_host in oplist:
                 return True
@@ -539,6 +551,12 @@ class Arsenic(irc.IRCClient):
 
                     commands = []
                     c = conn.execute('select name from command')
+
+                    for cmd in c:
+                        if cmd.startswith('!'):
+                            c.remove(cmd)
+                            c.add(encoder.decode(cmd))
+
                     for cmd in modules:
                         commands.append(key + cmd)
 
