@@ -553,16 +553,15 @@ class Arsenic(irc.IRCClient):
                     commands = []
                     c = conn.execute('select name from command')
 
-                    for cmd in c:
-                        if cmd.startswith('!'):
-                            c.remove(cmd)
-                            c.add(encoder.decode(cmd))
-
                     for cmd in modules:
                         commands.append(key + cmd)
 
                     for command in c:
-                        commands.append(key + str(command[0]))
+                        cmd = str(command[0])
+                        if cmd.startswith('!'):
+                            cmd = encoder.decode(cmd)
+                            
+                        commands.append(key + cmd)
 
                     self.msg(u, 'Howdy, %s' % (u))
                     self.msg(u, 'You have access to the following commands:')
