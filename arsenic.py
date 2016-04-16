@@ -705,7 +705,7 @@ class Arsenic(irc.IRCClient):
                     channel_user[channel.lower()] = [data]
 
                 elif command == 'KICK':
-                    if victim.split('!') == self.nickname: #checks if we got kicked
+                    if victim.split('!')[0] == self.nickname: #checks if we got kicked
                         self.kickedFrom(channel, victim, data)
 
             elif line[1] == '353': #NAMES output
