@@ -123,6 +123,8 @@ class Arsenic(irc.IRCClient):
 
     lockerbox = {}
 
+    floodprotect = False
+
     nickname = config.get('main', 'name')
 
     def checkauth(self, user):
@@ -579,6 +581,12 @@ class Arsenic(irc.IRCClient):
                         rs = str(r[0])
                         if rs.startswith('!'):
                             rs = encoder.decode(rs)
+
+                        if self.floodprotect:    #adds a space every other command. ha
+                            rs = rs + ' '
+                            self.floodprotect = False
+                        else:
+                            self.floodprotect = True
 
                         try:
                             u = msg.split(' ')[1]
