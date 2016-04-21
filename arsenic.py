@@ -21,6 +21,7 @@ import StringIO
 import sys
 import time
 import urllib2
+import platform
 
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
@@ -53,24 +54,42 @@ config = ConfigParser.ConfigParser()
 config.readfp(cfile)
 cfile.close()
 
-hostname = config.get('network', 'hostname')
-port = config.getint('network', 'port')
+try:
+    hostname = config.get('network', 'hostname')
+except:
+    raise conf('Unable to read hostname')
 
+try:
+    port = config.getint('network', 'port')
+except:
+    raise conf('Unable to read port')
 
+try:
+    oplist = set(config.get('main', 'op').replace(' ','').split(','))
+    for user in oplist:
+        if user.startswith('!'):
+            oplist.remove(user)
+            oplist.add(encoder.decode(user))
 
-oplist = set(config.get('main', 'op').replace(' ','').split(','))
-for user in oplist:
-    if user.startswith('!'):
-        oplist.remove(user)
-        oplist.add(encoder.decode(user))
+except:
+    print 'Unable to read ops, assuming none'
+    oplist = []
+
 ownerlist = oplist
 
-
 modlook = {}
-modules = config.get('main', 'mod').replace(' ','').split(',')
+try:
+    modules = config.get('main', 'mod').replace(' ','').split(',')
+except:
+    print 'Unable to read modules, assuming none'
+    modules = []
 
 #relays messages without a log
-debug = config.getboolean('main', 'debug')
+try:
+    debug = config.getboolean('main', 'debug')
+except:
+    debug = False
+    log.msg('Debug unset, defaulting to off')
 
 if debug:
     file_log = 'stdout'
@@ -133,6 +152,11 @@ class Arsenic(irc.IRCClient):
     lockerbox = {}
 
     floodprotect = False
+
+    versionName = 'KittyHawk'
+    versionNum = VER
+    versionEnv = platform.system()
+    sourceURL = "https://github.com/KittyHawkIRC"
 
     nickname = config.get('main', 'name')
 
@@ -683,7 +707,6 @@ class Arsenic(irc.IRCClient):
                     self.sendLine('PONG ' + server)
 
                 elif command == 'PRIVMSG': #privmsg(user, channel, msg)
-
                     self.privmsg(user, channel, data)
 
                 elif command == 'JOIN':
