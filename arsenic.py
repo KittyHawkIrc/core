@@ -30,9 +30,23 @@ import encoder #Local module, can be overridden with mod_load
 
 pr = cProfile.Profile()
 
+class conf(Exception):
+
+    """Automatically generated"""
+
 VER = '1.2.0'
 
-config_dir = ''
+try:
+    if sys.argv[1].startswith('--config='):
+        config_dir = sys.argv[1].split('=', 1)[1]
+        if config_dir == '':
+            raise conf('No path specified')
+        else:
+            if not os.path.isdir(config_dir):
+                raise conf('config path not found')
+except:
+    raise conf(
+        'arsenic takes a single argument, --config=/path/to/config/dir')
 
 cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r')
 config = ConfigParser.ConfigParser()
@@ -100,10 +114,6 @@ except:
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
     raise SystemExit(0)
-
-class conf(Exception):
-
-    """Automatically generated"""
 
 class Arsenic(irc.IRCClient):
 
@@ -762,19 +772,6 @@ class ArsenicFactory(protocol.ClientFactory):
 
 if __name__ == '__main__':
     conn = sqlite3.connect(db_name)
-
-    try:
-        if sys.argv[1].startswith('--config='):
-            config_dir = sys.argv[1].split('=', 1)[1]
-            if config_dir == '':
-                raise conf('No path specified')
-            else:
-                if not os.path.isdir(config_dir):
-                    raise conf('config path not found')
-                    raise
-    except:
-        raise conf(
-            'arsenic takes a single argument, --config=/path/to/config/dir')
 
     for mod in modules:
         mod_src = open(config_dir + '/modules/' + mod + '.py')
