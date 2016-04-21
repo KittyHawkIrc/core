@@ -73,12 +73,13 @@ modules = config.get('main', 'mod').replace(' ','').split(',')
 debug = config.getboolean('main', 'debug')
 
 if debug:
+    file_log = 'stdout'
     log.startLogging(sys.stdout)
-    print "KittyHawk %s, log: %s" % (VER, 'stdout')
 else:
     file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
-    print "KittyHawk %s, log: %s" % (VER, file_log)
     log.startLogging(open(file_log, 'w'))
+
+log.msg("KittyHawk %s, log: %s" % (VER, file_log))
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
