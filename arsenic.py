@@ -69,7 +69,7 @@ ownerlist = oplist
 modlook = {}
 modules = config.get('main', 'mod').replace(' ','').split(',')
 
-try:
+try:    #relays messages without a log
     debug = bool(config.get('main', 'debug'))
 except:
     debug = False
@@ -136,6 +136,11 @@ class Arsenic(irc.IRCClient):
     floodprotect = False
 
     nickname = config.get('main', 'name')
+
+    try:    #Joins channels on invite
+        autoinvite = bool(config.get('main', 'autoinvite'))
+    except:
+        autoinvite = False
 
     def checkauth(self, user):
         """Checks if hostmask is bot op"""
@@ -725,6 +730,10 @@ class Arsenic(irc.IRCClient):
                 elif command == 'KICK':
                     if victim.split('!')[0] == self.nickname: #checks if we got kicked
                         self.kickedFrom(channel, victim, data)
+
+                elif command == 'INVITE':
+                    if self.autoinvite:
+                        self.join(data)
 
             elif line[1] == '353': #NAMES output
                 if line[3].startswith('#'):
