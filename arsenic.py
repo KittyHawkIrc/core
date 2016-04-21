@@ -54,7 +54,7 @@ config.readfp(cfile)
 cfile.close()
 
 hostname = config.get('network', 'hostname')
-port = int(config.get('network', 'port'))
+port = config.getint('network', 'port')
 
 
 
@@ -69,10 +69,8 @@ ownerlist = oplist
 modlook = {}
 modules = config.get('main', 'mod').replace(' ','').split(',')
 
-try:    #relays messages without a log
-    debug = bool(config.get('main', 'debug'))
-except:
-    debug = False
+#relays messages without a log
+debug = config.getboolean('main', 'debug')
 
 if debug:
     log.startLogging(sys.stdout)
@@ -137,10 +135,8 @@ class Arsenic(irc.IRCClient):
 
     nickname = config.get('main', 'name')
 
-    try:    #Joins channels on invite
-        autoinvite = bool(config.get('main', 'autoinvite'))
-    except:
-        autoinvite = False
+        #Joins channels on invite
+    autoinvite = config.getboolean('main', 'autoinvite')
 
     def checkauth(self, user):
         """Checks if hostmask is bot op"""
