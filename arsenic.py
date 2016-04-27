@@ -115,6 +115,14 @@ channel_user = {}
 
 sync_channels = {}
 
+try:
+    for lists in config.get('main', 'sync_channel').split(','):
+        items = lists.split('>')
+        sync_channels[items[0]] = items[1]
+
+except:
+    pass
+
 try:    #^help/etc
     key = config.get('main', 'command_key').replace('','^')
 except:
