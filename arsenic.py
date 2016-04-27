@@ -275,6 +275,14 @@ class Arsenic(irc.IRCClient):
 
     # callbacks for events
     def signedOn(self):
+        try:    #silent error if no nickname
+            nickname = config.get('main', 'nickname')
+            self.nickname = nickname
+            self.setNick(nickname)
+
+        except:
+            pass
+
         for i in channel_list:
             channel_user[i.lower()] = [self.nickname]
             self.join(i)
