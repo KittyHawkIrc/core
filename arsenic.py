@@ -49,10 +49,9 @@ except:
     raise conf(
         'arsenic takes a single argument, --config=/path/to/config/dir')
 
-cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r')
+cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r+b')
 config = ConfigParser.ConfigParser()
 config.readfp(cfile)
-cfile.close()
 
 try:
     hostname = config.get('network', 'hostname')
@@ -90,6 +89,14 @@ try:
 except:
     debug = False
     log.msg('Debug unset, defaulting to off')
+
+try:
+    updateconfig = config.getboolean('main', 'updateconfig')
+except:
+    updateconfig = False
+
+if not updateconfig:
+    cfile.close() #Close this if we don't need it later
 
 if debug:
     file_log = 'stdout'
@@ -162,6 +169,24 @@ class Arsenic(irc.IRCClient):
 
         #Joins channels on invite
     autoinvite = config.getboolean('main', 'autoinvite')
+
+    def join(self, channel):
+        if not channel in channel_list:
+            channel_list.append(channel)
+        irc.IRCClient.join(self, channel)
+
+    def save(self):
+        clist = ''
+        for i in channel_list:
+            clist = '%s, %s' % (clist, i)
+
+        clist = clist[:len(clist) - 2]
+
+        print clist
+
+        config.set('main', 'channel', clist)
+        cfile.truncate()
+        config.write(cfile)
 
     def checkauth(self, user):
         """Checks if hostmask is bot op"""
