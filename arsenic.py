@@ -194,10 +194,26 @@ class Arsenic(irc.IRCClient):
 
     def save(self):
         clist = ''
+        slist = ''
+
         for i in channel_list:
             clist = '%s, %s' % (clist, i)
 
-        clist = clist[2:]
+        if clist[0] != '#':
+            clist = clist[2:]
+
+        try:    #silent catched error if not syncing
+            for i in sync_channels:
+                slist = '%s,%s>%s' % (slist, i, sync_channels[i])
+
+            if slist[0] != '#':
+                slist = slist[1:]
+
+            print slist
+            config.set('main', 'sync_channel', slist)
+
+        except:
+            pass
 
         config.set('main', 'channel', clist)
         cfile.seek(0)           #This mess is required
