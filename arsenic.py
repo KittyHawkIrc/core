@@ -170,23 +170,33 @@ class Arsenic(irc.IRCClient):
         #Joins channels on invite
     autoinvite = config.getboolean('main', 'autoinvite')
 
-    def join(self, channel):
+    def join(self, channel):    #hijack superclass join
         if not channel in channel_list:
             channel_list.append(channel)
+            if updateconfig: #Save file every join call
+                self.save()
         irc.IRCClient.join(self, channel)
+
+    def leave(self, channel):   #hijacks superclass leave
+        if channel in channel_list:
+            channel_list.remove(channel)
+            if updateconfig: #Save file every leave call
+                self.save()
+        irc.IRCClient.leave(self, channel)
 
     def save(self):
         clist = ''
         for i in channel_list:
             clist = '%s, %s' % (clist, i)
 
-        clist = clist[:len(clist) - 2]
-
-        print clist
+        clist = clist[2:]
 
         config.set('main', 'channel', clist)
-        cfile.truncate()
-        config.write(cfile)
+        cfile.seek(0)           #This mess is required
+        cfile.truncate()        #otherwise we get in to this weird
+        cfile.flush()           #situation where we have 2
+        config.write(cfile)     #configs in one file
+        cfile.flush()
 
     def checkauth(self, user):
         """Checks if hostmask is bot op"""
@@ -672,7 +682,8 @@ class Arsenic(irc.IRCClient):
         raw_line = line
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
 
-        try:
+        #try:
+        if True:
             if line[0].startswith(':'): #0 is user, so 1 is command
                 user = line[0].split(':',1)[1]
                 command = line[1]
@@ -796,7 +807,8 @@ class Arsenic(irc.IRCClient):
                     if i not in channel_user[channel]:
                         channel_user[channel].append(i.strip('~%@+&'))
 
-        except Exception as err:
+        else:
+        #except Exception as err:
             log.err("Exception: %s" % (err))
             log.err("Error: %s, LN: %s" % (raw_line, sys.exc_info()[-1].tb_lineno))
 
