@@ -41,7 +41,7 @@ class conf(Exception):
 
     """Automatically generated"""
 
-VER = '1.2.0'
+VER = '1.2.1'
 
 try:
     if sys.argv[1].startswith('--config='):
