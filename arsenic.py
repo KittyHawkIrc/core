@@ -172,7 +172,6 @@ class Arsenic(irc.IRCClient):
     versionNum = VER
     versionEnv = platform.system()
     sourceURL = "https://github.com/KittyHawkIRC"
-    lineRate = 0.1
 
     nickname = config.get('main', 'name')
 
