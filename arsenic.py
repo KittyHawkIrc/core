@@ -22,6 +22,12 @@ import sys
 import time
 import urllib2
 import platform
+import cloudpickle
+
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
@@ -144,6 +150,16 @@ try:
 except:
     db_name = ""
 
+try:
+    cache_name = config.get('main', 'cache')
+except:
+    cache_name = ".cache"
+
+try:
+    cache_fd = open(cache_name, 'r+b')
+except:
+    cache_fd = open(cache_name, 'w+') #creates a new file if the current doesn't exist
+
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
     raise SystemExit(0)
@@ -222,6 +238,16 @@ class Arsenic(irc.IRCClient):
         config.write(cfile)     #configs in one file
         cfile.flush()
 
+    def cache_save(self):
+        cache_fd.seek(0)           #This mess is required
+        cache_fd.truncate()        #otherwise we get in to this weird
+        cache_fd.flush()
+        cache_fd.write(cloudpickle.dumps(self.lockerbox))
+        cache_fd.flush()
+
+    def cache_load(self):
+        self.lockerbox = pickle.loads(cache_fd.read())  #In theory this should work
+
     def checkauth(self, user):
         """Checks if hostmask is bot op"""
 
@@ -286,6 +312,8 @@ class Arsenic(irc.IRCClient):
         for i in channel_list:
             channel_user[i.lower()] = [self.nickname]
             self.join(i)
+
+        self.cache_load()   #load cached lockerbox
 
     def kickedFrom(self, channel, user, message):
         self.join(channel)
@@ -608,6 +636,12 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(u, 'Channel not currently being synced')
 
+                    elif msg.startswith('cache_load'):
+                        self.cache_load()
+
+                    elif msg.startswith('cache_save'):
+                        self.cache_save()
+
                     elif msg.startswith('mod_update'):
                         mod = msg.split(' ')[1]
 
@@ -714,6 +748,7 @@ class Arsenic(irc.IRCClient):
         raw_line = line
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
 
+        #if True:
         try:
             if line[0].startswith(':'): #0 is user, so 1 is command
                 user = line[0].split(':',1)[1]
@@ -838,6 +873,7 @@ class Arsenic(irc.IRCClient):
                     if i not in channel_user[channel]:
                         channel_user[channel].append(i.strip('~%@+&'))
 
+        #else:
         except Exception as err:
             log.err("Exception: %s" % (err))
             log.err("Error: %s, LN: %s" % (raw_line, sys.exc_info()[-1].tb_lineno))
