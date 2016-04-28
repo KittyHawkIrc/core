@@ -636,9 +636,6 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(u, 'Channel not currently being synced')
 
-                    elif msg.startswith('cache_load'):
-                        self.cache_load()
-
                     elif msg.startswith('cache_save'):
                         self.cache_save()
 
