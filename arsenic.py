@@ -146,7 +146,7 @@ except:
 db_name = ""
 
 try:
-    db_name = config.get('main', 'db')
+    db_name = os.path.join(config_dir, config.get('main', 'db'))
 except:
     db_name = ""
 
@@ -154,6 +154,8 @@ try:
     cache_name = config.get('main', 'cache')
 except:
     cache_name = ".cache"
+
+cache_name = os.path.join(config_dir, cache_name)
 
 try:
     cache_fd = open(cache_name, 'r+b')
