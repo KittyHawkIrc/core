@@ -172,6 +172,7 @@ class Arsenic(irc.IRCClient):
     versionNum = VER
     versionEnv = platform.system()
     sourceURL = "https://github.com/KittyHawkIRC"
+    lineRate = 0.1
 
     nickname = config.get('main', 'name')
 
@@ -547,7 +548,7 @@ class Arsenic(irc.IRCClient):
                         data = msg.split(' ', 2)[2]
                         conn.execute(
                             ('insert or replace into command(name, response) '
-                             'values (?, ?)'), (cmd, data))
+                             'values (?, ?)'), (cmd.decode('utf-8'), data.decode('utf-8')))
                         conn.commit()
 
                         if data.startswith('!'):
@@ -562,7 +563,7 @@ class Arsenic(irc.IRCClient):
                         cmd = msg.split(' ')[1].lower()
 
                         conn.execute('delete from command where name = ?',
-                                     (cmd,))
+                                     (cmd.decode('utf-8'),))
                         conn.commit()
 
                         self.msg(
@@ -677,7 +678,7 @@ class Arsenic(irc.IRCClient):
 
                 else:
                     c = conn.execute(
-                        'select response from command where name == ?', (command,))
+                        'select response from command where name == ?', (command.decode('utf-8'),))
 
                     r = c.fetchone()
                     if r is not None:
@@ -714,8 +715,7 @@ class Arsenic(irc.IRCClient):
         raw_line = line
         line = line.split(' ') #:coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
 
-        #try:
-        if True:
+        try:
             if line[0].startswith(':'): #0 is user, so 1 is command
                 user = line[0].split(':',1)[1]
                 command = line[1]
@@ -839,8 +839,7 @@ class Arsenic(irc.IRCClient):
                     if i not in channel_user[channel]:
                         channel_user[channel].append(i.strip('~%@+&'))
 
-        else:
-        #except Exception as err:
+        except Exception as err:
             log.err("Exception: %s" % (err))
             log.err("Error: %s, LN: %s" % (raw_line, sys.exc_info()[-1].tb_lineno))
 
