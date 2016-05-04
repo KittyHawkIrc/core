@@ -690,8 +690,7 @@ class Arsenic(irc.IRCClient):
 
                 elif msg.startswith(key + 'help'):
 
-                    self.msg(u, 'Howdy, %s' % (u))
-                    self.msg(u, 'Please visit https://commands.tox.im to view the commands.')
+                    self.msg(u, 'Howdy, %s, please visit https://commands.tox.im to view the commands.' % (u)))
 
                 else:
                     c = conn.execute(
