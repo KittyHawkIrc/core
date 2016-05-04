@@ -690,23 +690,10 @@ class Arsenic(irc.IRCClient):
 
                 elif msg.startswith(key + 'help'):
 
-                    commands = []
-                    c = conn.execute('select name from command')
-
-                    for cmd in modules:
-                        commands.append(key + cmd)
-
-                    for command in c:
-                        cmd = str(command[0])
-                        if cmd.startswith('!'):
-                            cmd = encoder.decode(cmd)
-
-                        commands.append(key + cmd)
-
                     self.msg(u, 'Howdy, %s' % (u))
                     self.msg(u, 'You have access to the following commands:')
 
-                    self.msg(u, ', '.join(commands))
+                    self.msg(u, 'Please visit https://commands.tox.im to view the commands.')
 
                 else:
                     c = conn.execute(
