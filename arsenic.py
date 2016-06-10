@@ -655,8 +655,9 @@ class Arsenic(irc.IRCClient):
                             return
 
                         try:
-                            op = 'fake!' + ownerlist[0] #Impersonate the first owner, yolo
-                        except:
+                            op = 'fake!' + list(ownerlist)[0] #Impersonate the first owner, yolo
+                        except Exception, err:
+                            log.err(err)
                             self.msg(u, 'Error, no owners are defined')
                             return
 
