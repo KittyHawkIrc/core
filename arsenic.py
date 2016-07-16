@@ -209,6 +209,9 @@ class Arsenic(irc.IRCClient):
             if updateconfig: #Save file every leave call
                 self.save()
         irc.IRCClient.leave(self, channel)
+        
+    def msg(self, channel, message):    #hijack superclass msg
+        irc.IRCClient.msg(self, channel, str(message))
 
     def save(self):
         clist = ''
