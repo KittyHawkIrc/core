@@ -395,24 +395,6 @@ class Arsenic(irc.IRCClient):
 
         ##### Hijack config object functions to reduce scope
 
-        def __config_get__(item, default=False): #stubs, basically
-            return config_get(mod_declare_privmsg[command], item, default)
-
-
-        def __config_set__(item, value):
-            return config_set(mod_declare_privmsg[command], item, value)
-
-        def __config_remove__(item):
-            return config_remove(mod_declare_privmsg[command], item)
-
-        setattr(self, 'config_get', __config_get__)
-        setattr(self, 'config_set', __config_set__)
-        setattr(self, 'config_remove', __config_remove__)
-
-        setattr(self, 'store', self.save)
-        setattr(self, 'locker', self.lockerbox[
-                mod_declare_privmsg[command]])
-
         for command in mod_declare_userjoin:
             modlook[
                 mod_declare_userjoin[command]].callback(
