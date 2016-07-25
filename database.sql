@@ -8,9 +8,9 @@ create table command (
 );
 
 create table profile (
-    uuid text unique,
-    username text unique,
     nickname text unique,
+    ident text,
+    hostmask text unique,
     location text,
     gender integer,
     timezone integer,
