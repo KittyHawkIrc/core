@@ -13,7 +13,7 @@ create table profile (
     hostmask text unique,
     loc_lat float,
     loc_lng float,
-    unit text,
+    unit integer,
     gender integer,
     height float,
     weight float,
