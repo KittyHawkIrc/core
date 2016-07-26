@@ -198,12 +198,95 @@ if os.path.isfile(db_name) is False:
     log.err("No database found!")
     raise SystemExit(0)
 
+class Profile:
+    def __init__(self, connector):
+        self.connector = connector
+
+    def getuser(self, user):
+
+        nick = user.split('!',1)[0]
+        ident = user.split('!',1)[1].split('@',1)[0]
+        hostmask = user.split('@',1)[1]
+
+        c = self.connector.execute('select * from profile where hostmask = ?', (hostmask,))
+
+        if c is None:
+            c = self.connector.execute('select * from profile where nickname = ? and ident = ?', (nick, ident,))
+
+            if c is not None:
+                u = c.fetchone()
+                self.connector.execute('update profile set hostname = ? where nickname = ?', (hostname, nickname,))
+
+            else:
+                return False
+
+        else:
+            u = c.fetchone()
+
+        loc_lat = u[3]
+        loc_lng = u[4]
+
+        if u[5] == None:
+            unit = 'auto'
+        elif u[5] == 0:
+            unit = 'auto'
+        elif u[5] == 1:
+            unit = 'si'
+        elif u[5] == 2:
+            unit = 'ca'
+        elif u[5] == 3:
+            unit = 'uk2'
+
+        if u[6] == 0:
+            gender = False
+        elif u[6] == 1:
+            gender = True
+        else:
+            gender = None
+
+        height = u[7] #cm
+        weight = u[8] #kg
+
+        if u[9] == 1:
+            privacy = True
+        else:
+            privacy = False
+
+        if u[9] == 10:
+            isverified = True
+        else:
+            isverfied = False
+
+        if u[9] == 11:
+            isop = True
+        else:
+            isop = False
+
+        class user:
+            pass
+
+        setattr(user, 'nickname', nick)
+        setattr(user, 'ident', ident)
+        setattr(user, 'hostname', hostname)
+        setattr(user, 'lat', loc_lat)
+        setattr(user, 'lng', loc_lng)
+        setattr(user, 'unit', unit)
+        setattr(user, 'gender', gender)
+        setattr(user, 'height', height)
+        setattr(user, 'weight', weight)
+        setattr(user, 'privacy', privacy)
+        setattr(user, 'isverified', isverified)
+        setattr(user, 'isop', isop)
+
+        return user
+
 
 class Arsenic(irc.IRCClient):
 
     """Twisted callbacks registered here"""
 
-    def __init__(self, extra=False):
+    def __init__(self, profileManager, extra=False):
+        self.profileManager = profileManager
         self.__extra__ = extra
         if extra != False:
             self.msg = extra.msg
@@ -1008,12 +1091,13 @@ class ArsenicFactory(protocol.ClientFactory):
     def __init__(self, conn, channel, username, nspassword):
         self.conn = conn
         self.channel = channel
+        self.profileManager = Profile(conn)
 
         self.username = username
         self.nspassword = nspassword
 
     def buildProtocol(self, addr):
-        p = Arsenic()
+        p = Arsenic(self.profileManager)
         p.factory = self
         return p
 
