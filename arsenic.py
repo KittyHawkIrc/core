@@ -431,6 +431,7 @@ class Arsenic(irc.IRCClient):
         self.cache_load()  # load cached lockerbox
 
     def kickedFrom(self, channel, user, message):
+        time.sleep(3)
         self.join(channel)
         del user
 
