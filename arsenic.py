@@ -1,4 +1,4 @@
-#!/usr/bin/env pypy
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # pylint: disable=C0103
 # pylint: disable=W0702
@@ -12,16 +12,17 @@ This is WIP code under active development.
 
 """
 import ConfigParser
+import StringIO
 import cProfile
 import imp
 import os
+import platform
 import pstats
 import sqlite3
-import StringIO
 import sys
 import time
 import urllib2
-import platform
+
 import cloudpickle
 
 try:
@@ -42,7 +43,7 @@ class conf(Exception):
 
     """Automatically generated"""
 
-VER = '1.3.0'
+VER = '1.3.1'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -188,11 +189,26 @@ except:
 
 cache_name = os.path.join(config_dir, cache_name)
 
-try:
-    cache_fd = open(cache_name, 'r+b')
-except:
+cache_state = 0
+
+if os.path.isfile(cache_name):
+    try:
+        cache_fd = open(cache_name, 'r+b')
+        cache_state = 1
+    except:
+        try:
+            cache_fd = open(cache_name, 'rb')
+            cache_state = 2
+            log.msg('Cache load error, read only!')
+        except:
+            cache_fd = open('/tmp/nocache', 'w+')
+            cache_state = 0
+            log.msg('Unable to load cache entirely!')
+else:
     # creates a new file if the current doesn't exist
     cache_fd = open(cache_name, 'w+')
+    cache_state = 3
+    log.msg('Created a new cache: ' + cache_name)
 
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
@@ -362,6 +378,17 @@ class Arsenic(irc.IRCClient):
     def cache_load(self):
         # In theory, this should work
         self.lockerbox = pickle.loads(cache_fd.read())
+
+    def cache_status(self):
+        if cache_state == 1:
+            self.msg(self.channel, 'Cache loaded correctly (%s)' % (cache_name))
+        elif cache_state == 2:
+            self.msg(self.channel, 'Cache loaded read only (%s)' % (cache_name))
+        elif cache_state == 3:
+            self.msg(self.channel, 'A new cache was created (%s)' % (cache_name))
+        elif cache_state == 0:
+            self.msg(self.channel, 'Unable to load cache entirely (%s)' % (cache_name))
+
 
     def checkauth(self, user):
         """Checks if hostmask is bot op"""
@@ -746,6 +773,41 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(u, 'no section for that module!')
 
+                    elif msg == 'sync_list':
+                        for i in sync_channels:
+                            self.msg(u, '%s -> %s' % (i, sync_channels[i]))
+
+                    elif msg.startswith('sync'):
+                        ch1 = msg.split(' ')[1].lower()
+                        ch2 = msg.split(' ')[2].lower()
+
+                        if ch1 in sync_channels:
+                            self.msg(u, 'WARNING: %s already syncs to %s, overridden' % (
+                                ch1, sync_channels[ch1]))
+
+                        sync_channels[ch1] = ch2
+
+                        self.msg(u, '%s -> %s' % (ch1, ch2))
+
+                    elif msg.startswith('unsync'):
+                        ch1 = msg.split(' ')[1].lower()
+
+                        if ch1 in sync_channels:
+                            del sync_channels[ch1]
+                            self.msg(u, '%s -> X' % (ch1))
+                        else:
+                            self.msg(u, 'Channel not currently being synced')
+
+                    elif msg.startswith('cache_save'):
+                        self.cache_save()
+
+                    elif msg.startswith('cache_load'):
+                        self.cache_load()
+
+                    elif msg.startswith('cache_status'):
+                        self.cache_status()
+
+
                     elif msg.startswith('help_config'):
                         self.msg(u, 'KittyHawk Ver: %s' % (VER))
                         self.msg(u, 'Config commands: (note: owner only)')
@@ -775,6 +837,10 @@ class Arsenic(irc.IRCClient):
                             u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
                         self.msg(
                             u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
+                        self.msg(
+                            u, 'sync {channel1} {channel2}, unsync {channel1}')
+                        self.msg(u, 'sync_list, msg {channel} {message}')
+                        self.msg(u, 'cache_save, cache_load, cache_status')
 
                 if auth:
                     if msg.startswith('add'):
@@ -818,37 +884,6 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, 'nick {nickname}, topic {channel} {topic}')
                         self.msg(u, 'kick {channel} {name} {optional reason}')
                         self.msg(u, 'ban/unban {channel} {hostmask}')
-                        self.msg(
-                            u, 'sync {channel1} {channel2}, unsync {channel1}')
-                        self.msg(u, 'sync_list, msg {channel} {message}')
-
-                    elif msg == 'sync_list':
-                        for i in sync_channels:
-                            self.msg(u, '%s -> %s' % (i, sync_channels[i]))
-
-                    elif msg.startswith('sync'):
-                        ch1 = msg.split(' ')[1].lower()
-                        ch2 = msg.split(' ')[2].lower()
-
-                        if ch1 in sync_channels:
-                            self.msg(u, 'WARNING: %s already syncs to %s, overridden' % (
-                                ch1, sync_channels[ch1]))
-
-                        sync_channels[ch1] = ch2
-
-                        self.msg(u, '%s -> %s' % (ch1, ch2))
-
-                    elif msg.startswith('unsync'):
-                        ch1 = msg.split(' ')[1].lower()
-
-                        if ch1 in sync_channels:
-                            del sync_channels[ch1]
-                            self.msg(u, '%s -> X' % (ch1))
-                        else:
-                            self.msg(u, 'Channel not currently being synced')
-
-                    elif msg.startswith('cache_save'):
-                        self.cache_save()
 
                     elif msg.startswith('mod_update'):
                         mod = msg.split(' ')[1]
@@ -889,10 +924,6 @@ class Arsenic(irc.IRCClient):
                         self)
 
             elif msg.startswith(key):
-                if channel == '#fatpeoplehate':
-                    return
-                if channel == '#FatPeopleHate':
-                    return
 
                 if command in mod_declare_privmsg:
                     modlook[
