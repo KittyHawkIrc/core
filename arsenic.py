@@ -227,7 +227,7 @@ class Profile:
 
         print ("Created user %s" % (nick))
 
-        return getuser(user)
+        return user
 
     def getuser(self, user):
 
@@ -245,7 +245,7 @@ class Profile:
                 self.connector.execute('update profile set hostname = ? where nickname = ?', (hostname, nickname,))
 
             else:
-                return register(user)
+                return getuser(register(user))
 
         else:
             u = c.fetchone()
