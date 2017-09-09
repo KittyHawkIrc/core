@@ -224,7 +224,7 @@ class Profile:
         hostmask = user.split('@',1)[1]
 
         self.connector.execute('INSERT INTO profile (nickname, ident, hostmask) VALUES (?, ?, ?)', (nick, ident, hostmask,))
-
+        self.connector.commit()
         print ("Created user %s" % (nick))
 
         return user
