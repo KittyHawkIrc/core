@@ -43,7 +43,7 @@ class conf(Exception):
 
     """Automatically generated"""
 
-VER = '1.3.1'
+VER = '1.3.2'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -223,7 +223,7 @@ class Profile:
         ident = user.split('!',1)[1].split('@',1)[0]
         hostmask = user.split('@',1)[1]
 
-        self.connector.execute('INSERT INTO profile (nickname, ident, hostmask) VALUES (?, ?, ?)', (nick, ident, hostmask,))
+        print self.connector.execute('insert into profile(nickname, ident, hostmask) values (?, ?, ?)', (nick, ident, hostmask,))
         self.connector.commit()
         print ("Created user %s" % (nick))
 
@@ -242,8 +242,8 @@ class Profile:
 
             if c is not None:
                 u = c.fetchone()
-                self.connector.execute('update profile set hostname = ? where nickname = ?', (hostname, nickname,))
-
+                self.connector.execute('update profile set hostname = ? where nickname = ?', (hostmask, nickname,))
+                self.connector.commit()
             else:
                 return getuser(register(user))
 
