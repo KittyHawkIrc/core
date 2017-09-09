@@ -223,7 +223,7 @@ class Profile:
         ident = user.split('!',1)[1].split('@',1)[0]
         hostmask = user.split('@',1)[1]
 
-        self.connector.execute('INSERT INTO profile (nickname, ident, hostname) VALUES (?, ?, ?)', (nick, ident, hostmask,))
+        self.connector.execute('INSERT INTO profile (nickname, ident, hostmask) VALUES (?, ?, ?)', (nick, ident, hostmask,))
 
         self.log("Created user %s" % (nick))
 
