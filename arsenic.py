@@ -245,7 +245,7 @@ class Profile:
         if u[5] == None:
             unit = 'auto'
         elif u[5] == 0:
-            unit = 'auto'
+            unit = 'us'
         elif u[5] == 1:
             unit = 'si'
         elif u[5] == 2:
@@ -268,12 +268,12 @@ class Profile:
         else:
             privacy = False
 
-        if u[9] == 1:
+        if u[10] == 1:
             isverified = True
         else:
             isverified = False
 
-        if u[9] == 1:
+        if u[11] == 1:
             isop = True
         else:
             isop = False
