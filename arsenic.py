@@ -268,12 +268,12 @@ class Profile:
         else:
             privacy = False
 
-        if u[9] == 10:
+        if u[9] == 1:
             isverified = True
         else:
-            isverfied = False
+            isverified = False
 
-        if u[9] == 11:
+        if u[9] == 1:
             isop = True
         else:
             isop = False
