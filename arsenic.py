@@ -218,6 +218,17 @@ class Profile:
     def __init__(self, connector):
         self.connector = connector
 
+    def register(self, user):
+        nick = user.split('!',1)[0]
+        ident = user.split('!',1)[1].split('@',1)[0]
+        hostmask = user.split('@',1)[1]
+
+        self.connector.execute('INSERT INTO profile (nickname, ident, hostname) VALUES (?, ?, ?)', (nick, ident, hostmask,))
+
+        self.log("Created user %s" % (nick))
+
+        return getuser(user)
+
     def getuser(self, user):
 
         nick = user.split('!',1)[0]
@@ -234,10 +245,12 @@ class Profile:
                 self.connector.execute('update profile set hostname = ? where nickname = ?', (hostname, nickname,))
 
             else:
-                return False
+                return register(user)
 
         else:
             u = c.fetchone()
+
+        username = u[0]
 
         loc_lat = u[3]
         loc_lng = u[4]
@@ -281,6 +294,7 @@ class Profile:
         class user:
             pass
 
+        setattr(user, 'username', username)
         setattr(user, 'nickname', nick)
         setattr(user, 'ident', ident)
         setattr(user, 'hostname', hostname)
