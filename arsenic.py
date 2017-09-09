@@ -225,7 +225,7 @@ class Profile:
 
         self.connector.execute('INSERT INTO profile (nickname, ident, hostmask) VALUES (?, ?, ?)', (nick, ident, hostmask,))
 
-        self.log("Created user %s" % (nick))
+        print ("Created user %s" % (nick))
 
         return getuser(user)
 
