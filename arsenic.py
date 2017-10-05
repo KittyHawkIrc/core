@@ -24,6 +24,7 @@ import time
 import urllib2
 
 import cloudpickle
+import anydbm
 
 try:
     import cPickle as pickle
@@ -43,7 +44,8 @@ class conf(Exception):
 
     """Automatically generated"""
 
-VER = '1.3.2'
+
+VER = '1.4.0b1'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -189,26 +191,8 @@ except:
 
 cache_name = os.path.join(config_dir, cache_name)
 
-cache_state = 0
-
-if os.path.isfile(cache_name):
-    try:
-        cache_fd = open(cache_name, 'r+b')
-        cache_state = 1
-    except:
-        try:
-            cache_fd = open(cache_name, 'rb')
-            cache_state = 2
-            log.msg('Cache load error, read only!')
-        except:
-            cache_fd = open('/tmp/nocache', 'w+')
-            cache_state = 0
-            log.msg('Unable to load cache entirely!')
-else:
-    # creates a new file if the current doesn't exist
-    cache_fd = open(cache_name, 'w+')
-    cache_state = 3
-    log.msg('Created a new cache: ' + cache_name)
+cache_state = 1
+cache_fd = anydbm.open(cache_name, 'c')
 
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
@@ -218,34 +202,44 @@ class Profile:
     def __init__(self, connector):
         self.connector = connector
 
-    def register(self, user):
-        nick = user.split('!',1)[0]
-        ident = user.split('!',1)[1].split('@',1)[0]
-        hostmask = user.split('@',1)[1]
+    def register(self, usermask):
 
-        print self.connector.execute('insert into profile(nickname, ident, hostmask) values (?, ?, ?)', (nick, ident, hostmask,))
+        nick = usermask.split('!',1)[0]
+        ident = usermask.split('!',1)[1].split('@',1)[0]
+        hostmask = usermask.split('@',1)[1]
+
+        self.connector.execute('insert into profile(nickname, ident, hostmask) values (?, ?, ?)', (nick, ident, hostmask,))
         self.connector.commit()
+
         print ("Created user %s" % (nick))
 
         return user
 
-    def getuser(self, user):
+    def getuser(self, usermask):
+        print "THIS SHOULD ALWAYS SEND"
 
-        nick = user.split('!',1)[0]
-        ident = user.split('!',1)[1].split('@',1)[0]
-        hostmask = user.split('@',1)[1]
+        nick = usermask.split('!',1)[0]
+        ident = usermask.split('!',1)[1].split('@',1)[0]
+        hostmask = usermask.split('@',1)[1]
 
-        c = self.connector.execute('select * from profile where hostmask = ?', (hostmask,))
+        try:
+            c = self.connector.execute('select * from profile where hostmask = ?', (hostmask,)) #This is fucking broken gonna kmsa
 
-        if c is None:
-            c = self.connector.execute('select * from profile where nickname = ? and ident = ?', (nick, ident,))
+            if c is None:
+                c = self.connector.execute('select * from profile where nickname = ? and ident = ?', (nick, ident,))
 
-            if c is not None:
-                u = c.fetchone()
-                self.connector.execute('update profile set hostname = ? where nickname = ?', (hostmask, nickname,))
-                self.connector.commit()
-            else:
-                return getuser(register(user))
+                if c is None:
+                    print "No user!"
+
+                else:
+                    u = c.fetchone()
+                    self.connector.execute('update profile set hostname = ? where nickname = ?', (hostmask, nickname,))
+                    self.connector.commit()
+
+        except:
+            print "ERR"
+            return False
+
 
         else:
             u = c.fetchone()
@@ -383,15 +377,16 @@ class Arsenic(irc.IRCClient):
         config_save()
 
     def cache_save(self):
-        cache_fd.seek(0)  # This mess is required
-        cache_fd.truncate()  # otherwise we get in to this weird
-        cache_fd.flush()
-        cache_fd.write(cloudpickle.dumps(self.lockerbox))
-        cache_fd.flush()
+
+        for item in self.lockerbox:
+            cache_fd[item] = cloudpickle.dumps(self.lockerbox[item])
 
     def cache_load(self):
         # In theory, this should work
-        self.lockerbox = pickle.loads(cache_fd.read())
+
+        for item in cache_fd.keys():
+
+            self.lockerbox[item] = pickle.loads(cache_fd[item])
 
     def cache_status(self):
         if cache_state == 1:
@@ -552,6 +547,7 @@ class Arsenic(irc.IRCClient):
             self.msg(sync_channels[lower_channel], '<%s> %s' % (u, msg))
             self.syncmsg(user, lower_channel,
                          sync_channels[lower_channel], msg)
+        self.cache_save()
 
         iskey = False
 
@@ -578,6 +574,8 @@ class Arsenic(irc.IRCClient):
                 except:
                     self.lockerbox[mod_declare_privmsg[
                         command]] = self.persist()
+
+                self.cache_save()
 
                 # attributes
                 setattr(self, 'store', self.save)
@@ -944,6 +942,8 @@ class Arsenic(irc.IRCClient):
                         mod_declare_privmsg[
                             command]].callback(
                         self)
+
+                    self.cache_save()
 
                 elif msg.startswith(key + 'help'):
 
