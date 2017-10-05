@@ -23,13 +23,9 @@ import sys
 import time
 import urllib2
 
-import cloudpickle
 import anydbm
 
-try:
-    import cPickle as pickle
-except:
-    import pickle
+import dill as pickle
 
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
@@ -45,7 +41,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b1'
+VER = '1.4.0b2'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -192,6 +188,7 @@ except:
 cache_name = os.path.join(config_dir, cache_name)
 
 cache_state = 1
+
 cache_fd = anydbm.open(cache_name, 'c')
 
 if os.path.isfile(db_name) is False:
@@ -379,7 +376,7 @@ class Arsenic(irc.IRCClient):
     def cache_save(self):
 
         for item in self.lockerbox:
-            cache_fd[item] = cloudpickle.dumps(self.lockerbox[item])
+            cache_fd[item] = pickle.dumps(self.lockerbox[item])
 
     def cache_load(self):
         # In theory, this should work
