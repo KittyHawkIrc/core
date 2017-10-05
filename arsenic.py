@@ -41,7 +41,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b2'
+VER = '1.4.0b3'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -383,7 +383,10 @@ class Arsenic(irc.IRCClient):
 
         for item in cache_fd.keys():
 
-            self.lockerbox[item] = pickle.loads(cache_fd[item])
+            try:
+                self.lockerbox[item] = pickle.loads(cache_fd[item])
+            except:
+                log.msg("Error loading cache: " + item)
 
     def cache_status(self):
         if cache_state == 1:
