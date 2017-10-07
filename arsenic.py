@@ -38,7 +38,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b3'
+VER = '1.4.0b4'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -194,7 +194,6 @@ cache_state = 1
 print "Using cache: " + cache_name
 cache_fd = anydbm.open(cache_name, 'c')
 
-print cache_fd
 
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
@@ -388,9 +387,10 @@ def checkowner(user):
 class Arsenic(irc.IRCClient):
     """Twisted callbacks registered here"""
 
-    def __init__(self, profileManager, extra=False):
+    def __init__(self, profileManager, cache_fd, extra=False):
         self.profileManager = profileManager
         self.__extra__ = extra
+        self.cache_fd = cache_fd
         if extra:
             self.msg = extra.msg
 
@@ -399,6 +399,7 @@ class Arsenic(irc.IRCClient):
     class persist:
         def __init__(self):
             pass
+
 
     save = persist()
 
@@ -433,12 +434,7 @@ class Arsenic(irc.IRCClient):
     def cache_save(self):
 
         for item in self.lockerbox:
-            log.msg("Saving:" + item)
-            log.msg("data: " + str(pickle.dumps(self.lockerbox[item])))
-            cache_fd[item] = pickle.dumps(self.lockerbox[item])
-            log.msg("Validating: " + str(cache_fd[item]))
-
-        print log.msg(str(cache_fd))
+            self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
 
     def cache_load(self):
         # In theory, this should work
@@ -446,9 +442,16 @@ class Arsenic(irc.IRCClient):
         for item in cache_fd.keys():
 
             try:
-                self.lockerbox[item] = pickle.loads(cache_fd[item])
+                self.lockerbox[item] = pickle.loads(self.cache_fd[item])
             except:
                 log.msg("Error loading cache: " + item)
+
+    def cache_reopen(self):
+        log.msg("closing")
+        self.cache_fd.close()
+        log.msg("cache opening")
+        self.cache_fd = anydbm.open(cache_name, 'c')
+
 
     def cache_status(self):
         if cache_state == 1:
@@ -1157,7 +1160,7 @@ class ArsenicFactory(protocol.ClientFactory):
         self.nspassword = nspassword
 
     def buildProtocol(self, addr):
-        p = Arsenic(self.profileManager)
+        p = Arsenic(self.profileManager, cache_fd)
         p.factory = self
         return p
 
