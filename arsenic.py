@@ -431,10 +431,18 @@ class Arsenic(irc.IRCClient):
                 save()
         irc.IRCClient.leave(self, channel)
 
+    def cache_reopen(self):
+        log.msg("closing")
+        self.cache_fd.close()
+        log.msg("cache opening")
+        self.cache_fd = anydbm.open(cache_name, 'c')
+
     def cache_save(self):
 
         for item in self.lockerbox:
             self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
+
+        self.cache_reopen()
 
     def cache_load(self):
         # In theory, this should work
@@ -446,11 +454,6 @@ class Arsenic(irc.IRCClient):
             except:
                 log.msg("Error loading cache: " + item)
 
-    def cache_reopen(self):
-        log.msg("closing")
-        self.cache_fd.close()
-        log.msg("cache opening")
-        self.cache_fd = anydbm.open(cache_name, 'c')
 
 
     def cache_status(self):
@@ -739,6 +742,7 @@ class Arsenic(irc.IRCClient):
 
                     elif msg.startswith('update_restart'):
                         try:
+                            self.cache_reopen()
                             mod_src = open(sys.argv[0])
                             compile(mod_src.read(), '<string>',
                                     'exec')  # syntax testing
