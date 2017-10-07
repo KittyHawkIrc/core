@@ -191,7 +191,10 @@ cache_name = os.path.join(config_dir, cache_name)
 
 cache_state = 1
 
+print "Using cache: " + cache_name
 cache_fd = anydbm.open(cache_name, 'c')
+
+print cache_fd
 
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
@@ -430,7 +433,12 @@ class Arsenic(irc.IRCClient):
     def cache_save(self):
 
         for item in self.lockerbox:
+            log.msg("Saving:" + item)
+            log.msg("data: " + str(pickle.dumps(self.lockerbox[item])))
             cache_fd[item] = pickle.dumps(self.lockerbox[item])
+            log.msg("Validating: " + str(cache_fd[item]))
+
+        print log.msg(str(cache_fd))
 
     def cache_load(self):
         # In theory, this should work
