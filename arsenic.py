@@ -38,7 +38,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b5'
+VER = '1.4.0b6'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -91,47 +91,41 @@ def config_remove(module, item):
         return False
 
 
-try:
-    hostname = config.get('network', 'hostname')
-except:
+hostname = config_get('network', 'hostname')
+if not hostname:
     raise conf('Unable to read hostname')
 
-try:
-    port = config.getint('network', 'port')
-except:
+port = config.getint('network', 'port')
+if not port:
     raise conf('Unable to read port')
 
-try:
-    oplist = set(config.get('main', 'op').replace(' ', '').split(','))
+oplist = config_get('main', 'op')
+if oplist:
+    oplist = oplist.replace(' ', '').split(',')
     for user in oplist:
         if user.startswith('!'):
             oplist.remove(user)
             oplist.add(encoder.decode(user))
 
-except:
+else:
     print 'Unable to read ops, assuming none'
     oplist = []
 
 ownerlist = oplist
 
 modlook = {}
-try:
-    modules = config.get('main', 'mod').replace(' ', '').split(',')
-except:
+
+modules = config_get('main', 'mod').replace(' ', '').split(',')
+
+if not modules:
     print 'Unable to read modules, assuming none'
     modules = []
 
 # relays messages without a log
-try:
-    debug = config.getboolean('main', 'debug')
-except:
-    debug = False
-    log.msg('Debug unset, defaulting to off')
 
-try:
-    updateconfig = config.getboolean('main', 'updateconfig')
-except:
-    updateconfig = False
+debug = config.getboolean('main', 'debug')
+
+updateconfig = config.getboolean('main', 'updateconfig')
 
 if not updateconfig:
     cfile.close()  # Close this if we don't need it later
@@ -153,39 +147,28 @@ channel_user = {}
 
 sync_channels = {}
 
-try:
-    for lists in config.get('main', 'sync_channel').split(','):
+__sync_channel__ = config_get('main', 'sync_channel')
+
+if __sync_channel__:
+    for lists in __sync_channel__.split(','):
         items = lists.split('>')
         sync_channels[items[0]] = items[1]
 
-except:
-    pass
-
-try:  # ^help/etc
-    key = config.get('main', 'command_key').replace('', '^')
-except:
-    key = '^'
-
-irc_relay = ""
+key = config_get('main', 'command_key', '^')
 
 isconnected = False
 
-try:
-    irc_relay = config.get('main', 'log')
-except:
+irc_relay = config_get('main', 'log', '')
+
+if irc_relay == '':
     log.msg("no relay log channel")
 
-db_name = ""
+db_name = os.path.join(config_dir, config_get('main', 'db'))
 
-try:
-    db_name = os.path.join(config_dir, config.get('main', 'db'))
-except:
+if not db_name:
     db_name = ""
 
-try:
-    cache_name = config.get('main', 'cache')
-except:
-    cache_name = ".cache"
+cache_name = config_get('main', 'cache', '.cache')
 
 cache_name = os.path.join(config_dir, cache_name)
 
@@ -299,7 +282,8 @@ class Profile:
         setattr(user, 'username', username)
         setattr(user, 'nickname', nick)
         setattr(user, 'ident', ident)
-        setattr(user, 'hostname', hostname)
+        setattr(user, 'hostname', hostmask)
+        setattr(user, 'userhost', usermask)
         setattr(user, 'lat', loc_lat)
         setattr(user, 'lng', loc_lng)
         setattr(user, 'unit', unit)
@@ -414,7 +398,7 @@ class Arsenic(irc.IRCClient):
     versionEnv = platform.system()
     sourceURL = "https://github.com/KittyHawkIRC"
 
-    nickname = config.get('main', 'name')
+    nickname = config_get('main', 'name')
 
     # Joins channels on invite
     autoinvite = config.getboolean('main', 'autoinvite')
@@ -475,13 +459,10 @@ class Arsenic(irc.IRCClient):
 
     # callbacks for events
     def signedOn(self):
-        try:  # silent error if no nickname
-            nickname = config.get('main', 'nickname')
+        nickname = config_get('main', 'nickname')
+        if nickname:
             self.nickname = nickname
             self.setNick(nickname)
-
-        except:
-            pass
 
         for i in channel_list:
             channel_user[i.lower()] = [self.nickname]
@@ -497,11 +478,12 @@ class Arsenic(irc.IRCClient):
     def syncmsg(self, cbuser, inchannel, outchannel, msg):
         setattr(self, 'type', 'syncmsg')
         setattr(self, 'message', msg)
-        setattr(self, 'user', cbuser)
+        setattr(self, 'user', self.profileManager.getuser(cbuser))
         setattr(self, 'incoming_channel', inchannel)
         setattr(self, 'outgoing_channel', outchannel)
         setattr(self, 'ver', VER)
         setattr(self, 'store', save)
+
 
         ##### Hijack config object functions to reduce scope
 
@@ -531,7 +513,8 @@ class Arsenic(irc.IRCClient):
 
     def userJoined(self, cbuser, cbchannel):
         setattr(self, 'type', 'userjoin')
-        setattr(self, 'user', cbuser)
+        if cbuser != self.nickname:
+            setattr(self, 'user', self.profileManager.getuser(cbuser))
         setattr(self, 'channel', cbchannel)
         setattr(self, 'ver', VER)
 
@@ -553,22 +536,26 @@ class Arsenic(irc.IRCClient):
         if user == self.nickname:
             return
 
-            if not channel.startswith('#'):
-                channel = user.split('!')
+        if not channel.startswith('#'):
+            channel = user.split('!')
 
-        auth = checkauth(user)
-        owner = checkowner(user)
+        profile = self.profileManager.getuser(user)
+
+        auth = profile.isop
+        owner = checkowner(user)  # Config file set value
 
         # Start module execution
 
         command = msg.split(' ', 1)[0].lower()
 
-        lower_channel = channel.lower()
-        if lower_channel in sync_channels:  # syncing
-            u = user.split('!', 1)[0]
-            self.msg(sync_channels[lower_channel], '<%s> %s' % (u, msg))
-            self.syncmsg(user, lower_channel,
-                         sync_channels[lower_channel], msg)
+        if type(channel) == 'str':
+            lower_channel = channel.lower()
+            if lower_channel in sync_channels:  # syncing
+                u = profile.nickname
+                self.msg(sync_channels[lower_channel], '<%s> %s' % (u, msg))
+                self.syncmsg(user, lower_channel,
+                             sync_channels[lower_channel], msg)
+
         self.cache_save()
 
         iskey = False
@@ -586,9 +573,10 @@ class Arsenic(irc.IRCClient):
             setattr(self, 'type', 'privmsg')
             setattr(self, 'command', command)
             setattr(self, 'message', msg)
-            setattr(self, 'user', user)
+            setattr(self, 'user', user)  #This will change to a profile object soon!
             setattr(self, 'channel', channel)
             setattr(self, 'ver', VER)
+            setattr(self, 'profile', profile)  #Provide profile support to modules (temporary!)
 
             if command in mod_declare_privmsg:
                 try:
@@ -1107,16 +1095,17 @@ class Arsenic(irc.IRCClient):
                 elif command == 'NICK':
                     user = user.split('!', 1)[0]
 
-                    if channel.lower() in channel_user:
-                        if user in channel_user[channel.lower()]:
-                            channel_user[channel.lower()].remove(user)
-                        else:
-                            log.err(
-                                "Warning: Tried to remove unknown user. (%s)" % user)
+                    if channel_user.split('!', 1)[0] != self.nickname:
+                        if channel.lower() in channel_user:
+                            if user in channel_user[channel.lower()]:
+                                channel_user[channel.lower()].remove(user)
+                            else:
+                                log.err(
+                                    "Warning: Tried to remove unknown user. (%s)" % user)
 
-                    else:
-                        log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (
-                            channel.lower(), user))
+                        else:
+                            log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (
+                                channel.lower(), user))
 
                     channel_user[channel.lower()] = [data]
 
@@ -1203,11 +1192,11 @@ if __name__ == '__main__':
                 mod_declare_syncmsg[i] = mod
 
     try:
-        channel_list = config.get(
+        channel_list = config_get(
             'main', 'channel').replace(' ', '').split(',')
 
-        f = ArsenicFactory(conn, channel_list[0], config.get('main', 'name'),
-                           config.get('main', 'password'))
+        f = ArsenicFactory(conn, channel_list[0], config_get('main', 'name'),
+                           config_get('main', 'password'))
     except IndexError:
         raise SystemExit(0)
 
