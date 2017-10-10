@@ -527,17 +527,10 @@ class Arsenic(irc.IRCClient):
 
     def privmsg(self, user, channel, msg):
 
-        try:  # I forgot why this exists but it causes bugs
-            pass
-            # user = user.split(key, 1)[0]
-        except:
-            user = user
-
-        if user == self.nickname:
-            return
-
         if not channel.startswith('#'):
-            channel = user.split('!')
+            channel = self.nickname
+
+
 
         profile = self.profileManager.getuser(user)
 
