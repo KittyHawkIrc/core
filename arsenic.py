@@ -38,7 +38,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b4'
+VER = '1.4.0b5'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -210,44 +210,46 @@ class Profile:
         ident = usermask.split('!', 1)[1].split('@', 1)[0]
         hostmask = usermask.split('@', 1)[1]
 
-        self.connector.execute('insert into profile(nickname, ident, hostmask) values (?, ?, ?)',
-                               (nick, ident, hostmask,))
-        self.connector.commit()
+        try:
+            self.connector.execute('insert into profile(nickname, ident, hostmask) values (?, ?, ?)',
+                                   (nick, ident, hostmask,))
+            self.connector.commit()
 
-        print ("Created user %s" % nick)
+            log.msg("Created user %s" % nick)
 
-        return user
+            return usermask
+        except:
+            return False
+
 
     def getuser(self, usermask):
-        global unit
-        print "THIS SHOULD ALWAYS SEND"
 
         nick = usermask.split('!', 1)[0]
         ident = usermask.split('!', 1)[1].split('@', 1)[0]
         hostmask = usermask.split('@', 1)[1]
 
-        try:
-            c = self.connector.execute('select * from profile where hostmask = ?',
-                                       (hostmask,))  # This is fucking broken gonna kmsa
+        c = self.connector.execute('select * from profile where hostmask = ?',
+                                   (hostmask,))
 
-            if c is None:
-                c = self.connector.execute('select * from profile where nickname = ? and ident = ?', (nick, ident,))
+        tmp_u = c.fetchone()
 
-                if c is None:
-                    print "No user!"
+        if tmp_u is None:
+            c = self.connector.execute('select * from profile where nickname = ? and ident = ?', (nick, ident,))
 
-                else:
-                    u = c.fetchone()
-                    self.connector.execute('update profile set hostname = ? where nickname = ?', (hostmask, nickname,))
-                    self.connector.commit()
+            tmp_u = c.fetchone()
+            if tmp_u is None:
+                return self.getuser(self.register(usermask))
 
-        except:
-            print "ERR"
-            return False
+            else:
+                log.msg("Updating hostmask for " + nick)
+                self.connector.execute('update profile set hostmask = ? where nickname = ?', (hostmask, nick,))
+                self.connector.commit()
+                return self.getuser(usermask)
 
 
         else:
-            u = c.fetchone()
+            u = tmp_u  # Turn temp in to actual user info
+
 
         username = u[0]
 
@@ -432,9 +434,7 @@ class Arsenic(irc.IRCClient):
         irc.IRCClient.leave(self, channel)
 
     def cache_reopen(self):
-        log.msg("closing")
         self.cache_fd.close()
-        log.msg("cache opening")
         self.cache_fd = anydbm.open(cache_name, 'c')
 
     def cache_save(self):
