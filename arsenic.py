@@ -38,7 +38,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b6'
+VER = '1.4.0b7'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -187,6 +187,9 @@ class Profile:
     def __init__(self, connector):
         self.connector = connector
 
+    def __SafeSQL__(self, string):  # Practice safe SQL, wear a sanitizer
+        return ''.join(e for e in string if e.isalnum() or e == '@' or e == '!' or e == '.')
+
     def register(self, usermask):
 
         nick = usermask.split('!', 1)[0]
@@ -236,41 +239,48 @@ class Profile:
 
         username = u[0]
 
-        loc_lat = u[3]
-        loc_lng = u[4]
+        if nick != u[1]:
+            self.connector.execute('update profile set nickname = ? where username = ?', (nick, username,))
+            self.connector.commit()
 
-        if u[5] is None:
-            unit = 'auto'
-        elif u[5] == 0:
+        loc_lat = u[4]
+        loc_lng = u[5]
+
+        if u[6] is not None:
+            if u[6] == 0:
+                unit = 'us'
+            elif u[6] == 1:
+                unit = 'si'
+            elif u[6] == 2:
+                unit = 'ca'
+            elif u[6] == 3:
+                unit = 'uk2'
+            else:
+                unit = 'us'
+        else:
             unit = 'us'
-        elif u[5] == 1:
-            unit = 'si'
-        elif u[5] == 2:
-            unit = 'ca'
-        elif u[5] == 3:
-            unit = 'uk2'
 
-        if u[6] == 0:
+        if u[7] == 0:
             gender = False
-        elif u[6] == 1:
+        elif u[7] == 1:
             gender = True
         else:
             gender = None
 
-        height = u[7]  # cm
-        weight = u[8]  # kg
+        height = u[8]  # cm
+        weight = u[9]  # kg
 
-        if u[9] == 1:
+        if u[10] == 1:
             privacy = True
         else:
             privacy = False
 
-        if u[10] == 1:
+        if u[11] == 1:
             isverified = True
         else:
             isverified = False
 
-        if u[11] == 1:
+        if u[12] == 1:
             isop = True
         else:
             isop = False
@@ -296,6 +306,119 @@ class Profile:
 
         return user
 
+    def getuser_byname(self, username):  # Caution, user not authenticated
+
+        c = self.connector.execute('select * from profile where username = ?', (username,))
+        u = c.fetchone()
+
+        if u:
+            return self.getuser('%s!%s@%s' % (u[1], u[2], u[3]))
+
+        else:
+            return False
+
+    def update(self, username, nickname=None, ident=None, hostname=None, lat=None, lng=None, unit=None, gender=None,
+               height=None, weight=None, privacy=None, isverified=None, isop=None):
+
+        sql_str = 'update profile set'
+
+        if nickname is not None:
+            sql_str += '  nickname = "%s", ' % (self.__SafeSQL__(nickname))
+
+        if ident is not None:
+            sql_str += '  ident = "%s", ' % (self.__SafeSQL__(ident))
+
+        if hostname is not None:
+            sql_str += '  hostname = "%s", ' % (self.__SafeSQL__(hostname))
+
+        if lat is not None:
+            try:
+                lat = float(lat)  # Check if valid number
+                sql_str += '  loc_lat = "%s", ' % lat
+            except:
+                log.msg("Error, could not turn lat in to float")
+                return False
+
+        if lng is not None:
+            try:
+                lng = float(lng)  # Check if valid number
+                sql_str += '  loc_lng = "%s", ' % lng
+            except:
+                log.msg("Error, could not turn lng in to float")
+                return False
+
+        if unit is not None:
+
+            if unit is 'auto':
+                value = None
+            elif unit == 'us':
+                value = 0
+            elif unit == 'si':
+                value = 1
+            elif unit == 'ca':
+                value = 2
+            elif unit == 'uk2':
+                value = 3
+            else:
+                return False
+                log.msg("Incorrect unit supplied")
+
+            sql_str += '  unit = "%s", ' % value  # 5 choices means no sql issues
+
+        if gender is not None:
+            if gender:
+                gender = 1  # M
+            else:
+                gender = 0  # F
+            sql_str += '  gender = "%s", ' % (gender)
+
+        if height is not None:
+            try:
+                height = float(height)  # Check if valid number
+                sql_str += '  height = "%s", ' % height
+            except:
+                log.msg("Error, could not turn height in to float")
+                return False
+
+        if weight is not None:
+            try:
+                weight = float(weight)  # Check if valid number
+                sql_str += ' weight = "%s", ' % weight
+            except:
+                log.msg("Error, could not turn weight in to float")
+                return False
+
+        if privacy is not None:
+            if privacy:
+                privacy = 1
+            else:
+                privacy = 0
+            sql_str += '  privacy = "%s", ' % (privacy)
+
+        if isverified is not None:
+            if isverified:
+                isverified = 1
+            else:
+                isverified = 0
+            sql_str += '  isverified = "%s", ' % (isverified)
+
+        if isop is not None:
+            if isop:
+                isop = 1
+            else:
+                isop = 0
+            sql_str += '  isop = "%s", ' % (isop)
+
+        sql_str = '%s where nickname = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
+
+        try:
+            self.connector.execute(sql_str)
+            self.connector.commit()
+            return True
+
+        except:
+            log.msg("Unable to commit profile changes, does the user exist?")
+            return False
 
 def save():
     clist = ''
@@ -613,36 +736,41 @@ class Arsenic(irc.IRCClient):
                     self.msg(irc_relay, user + " said " + msg)
 
                 if owner:
-                    if msg.startswith('op'):
+                    if command == 'op':
 
-                        host = msg.split(' ', 1)[1]
-                        extname = host.split('!', 1)[0]
-                        c = conn.execute('INSERT INTO op(username) VALUES (?)',
-                                         (host.split('!', 1)[1],))
-                        conn.commit()
+                        op = self.profileManager.getuser_byname(msg.split()[1])
 
-                        self.msg(
-                            user.split(
-                                '!',
-                                1)[0],
-                            'Added user %s to the op list' %
-                            extname)
-                        self.msg(extname, "You've been added to my op list")
+                        if op:  # Check if profile exists
 
-                    elif msg.startswith('deop'):
+                            if not op.isop:  # Make sure the user isn't already an op
 
-                        host = msg.split(' ', 1)[1]
-                        extname = host.split('!', 1)[0]
-                        c = conn.execute('DELETE FROM op WHERE username = ?',
-                                         (host.split('!', 1)[1],))
-                        conn.commit()
+                                self.profileManager.update(op, isop=True)
+                                self.msg(self.profile.nickname, 'Successfully made %s a bot operator!' % (op.nickname))
+                                self.msg(op.nickname, "You're now a bot operator! Message me help for commands.")
 
-                        self.msg(
-                            user.split(
-                                '!',
-                                1)[0],
-                            'Removed user %s from the op list' %
-                            extname)
+                            else:
+                                self.msg(self.profile.nickname, '%s is already an operator.' % (op.nickname))
+
+                        else:
+                            self.msg(self.profile.nickname, 'Error, no user was found.')
+
+
+                    elif command == 'deop':
+
+                        op = self.profileManager.getuser_byname(msg.split()[1])
+
+                        if op:  # Check if profile exists
+
+                            if op.isop:  # Make sure the user is an op
+
+                                self.profileManager.update(op, isop=False)
+                                self.msg(self.profile.nickname, 'Bot operator status removed from %s.' % (op.nickname))
+
+                            else:
+                                self.msg(self.profile.nickname, '%s is not an operator.' % (op.nickname))
+
+                        else:
+                            self.msg(self.profile.nickname, 'Error, no user was found.')
 
                     elif msg.startswith('prof_on'):
                         pr.enable()
@@ -1084,23 +1212,6 @@ class Arsenic(irc.IRCClient):
                     for i in channel_user:
                         if user in channel_user[i]:
                             channel_user[i].remove(user)
-
-                elif command == 'NICK':
-                    user = user.split('!', 1)[0]
-
-                    if channel_user.split('!', 1)[0] != self.nickname:
-                        if channel.lower() in channel_user:
-                            if user in channel_user[channel.lower()]:
-                                channel_user[channel.lower()].remove(user)
-                            else:
-                                log.err(
-                                    "Warning: Tried to remove unknown user. (%s)" % user)
-
-                        else:
-                            log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (
-                                channel.lower(), user))
-
-                    channel_user[channel.lower()] = [data]
 
                 elif command == 'KICK':
                     # checks if we got kicked
