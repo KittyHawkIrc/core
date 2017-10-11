@@ -772,22 +772,22 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(self.profile.nickname, 'Error, no user was found.')
 
-                    elif msg.startswith('prof_on'):
+                    elif command == 'prof_on':
                         pr.enable()
                         self.msg(u, 'profiling on')
 
-                    elif msg.startswith('prof_off'):
+                    elif command == 'prof_off':
                         pr.disable()
                         self.msg(u, 'profiling off')
 
-                    elif msg.startswith('prof_stat'):
+                    elif command == 'prof_stat':
                         s = StringIO.StringIO()
                         sortby = 'cumulative'
                         ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
                         ps.print_stats()
                         self.msg(u, s.getvalue())
 
-                    elif msg.startswith('mod_inject'):
+                    elif command == 'mod_inject':
                         mod = msg.split(' ')[1]
                         url = msg.split(' ')[2]
                         req = urllib2.Request(
@@ -804,7 +804,7 @@ class Arsenic(irc.IRCClient):
                         fd.close()
                         mod_src.close()
 
-                    elif msg.startswith('mod_load'):
+                    elif command == 'mod_load':
                         mod = msg.split(' ')[1]
 
                         mod_src = open(config_dir + '/modules/' + mod + '.py')
@@ -831,7 +831,7 @@ class Arsenic(irc.IRCClient):
                             elif cmd_check == 'syncmsg':
                                 mod_declare_syncmsg[i] = mod
 
-                    elif msg.startswith('update_inject'):
+                    elif command == 'update_inject':
                         try:
                             url = msg.split(' ')[1]
                         except:
@@ -849,7 +849,7 @@ class Arsenic(irc.IRCClient):
                         fd.close()
                         mod_src.close()
 
-                    elif msg.startswith('update_restart'):
+                    elif command == 'update_restart':
                         try:
                             self.cache_reopen()
                             mod_src = open(sys.argv[0])
@@ -863,7 +863,7 @@ class Arsenic(irc.IRCClient):
                         except:
                             self.msg(u, 'Syntax error!')
 
-                    elif msg.startswith('update_patch'):
+                    elif command == 'update_patch':
                         mod_src = open(sys.argv[0])
                         mod_bytecode = compile(
                             mod_src.read(), '<string>', 'exec')
@@ -878,19 +878,19 @@ class Arsenic(irc.IRCClient):
 
                         self.msg(u, 'Attempted runtime patching (%s)' % VER)
 
-                    elif msg.startswith('inject'):
+                    elif command == 'inject':
                         self.lineReceived(msg.split(' ', 1)[1])
 
-                    elif msg.startswith('raw'):
+                    elif command == 'raw':
                         self.sendLine(msg.split(' ', 1)[1])
 
-                    elif msg.startswith('config_get'):
+                    elif command == 'config_get':
                         opts = msg.split()
                         module = opts[1]
                         item = opts[2]
                         self.msg(u, str(config_get(module, item, False)))
 
-                    elif msg.startswith('config_set'):
+                    elif command == 'config_set':
                         opts = msg.split()
                         module = opts[1]
                         item = opts[2]
@@ -902,13 +902,13 @@ class Arsenic(irc.IRCClient):
 
                         self.msg(u, str(config_set(module, item, value[:len(value) - 1])))
 
-                    elif msg.startswith('config_remove'):
+                    elif command == 'config_remove':
                         opts = msg.split()
                         module = opts[1]
                         item = opts[2]
                         self.msg(u, str(config_remove(module, item)))
 
-                    elif msg.startswith('config_list'):
+                    elif command == 'config_list':
                         opts = msg.split()
                         module = opts[1]
                         if config.has_section(module):
@@ -916,11 +916,11 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(u, 'no section for that module!')
 
-                    elif msg == 'sync_list':
+                    elif command == 'sync_list':
                         for i in sync_channels:
                             self.msg(u, '%s -> %s' % (i, sync_channels[i]))
 
-                    elif msg.startswith('sync'):
+                    elif command == 'sync':
                         ch1 = msg.split(' ')[1].lower()
                         ch2 = msg.split(' ')[2].lower()
 
@@ -932,7 +932,7 @@ class Arsenic(irc.IRCClient):
 
                         self.msg(u, '%s -> %s' % (ch1, ch2))
 
-                    elif msg.startswith('unsync'):
+                    elif command == 'unsync':
                         ch1 = msg.split(' ')[1].lower()
 
                         if ch1 in sync_channels:
@@ -941,17 +941,17 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(u, 'Channel not currently being synced')
 
-                    elif msg.startswith('cache_save'):
+                    elif command == 'cache_save':
                         self.cache_save()
 
-                    elif msg.startswith('cache_load'):
+                    elif command == 'cache_load':
                         self.cache_load()
 
-                    elif msg.startswith('cache_status'):
+                    elif command == 'cache_status':
                         self.cache_status()
 
 
-                    elif msg.startswith('help_config'):
+                    elif command == 'help_config':
                         self.msg(u, 'KittyHawk Ver: %s' % VER)
                         self.msg(u, 'Config commands: (note: owner only)')
                         self.msg(u, 'config_set {module} {item} {value} (Sets a value for a module)')
@@ -959,7 +959,7 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, 'config_remove {module} {item} (Removes a value)')
                         self.msg(u, 'config_list {module} (Lists all items for a module)')
 
-                    elif msg.startswith('help_sysop'):
+                    elif command == 'help_sysop':
                         self.msg(u, 'KittyHawk Ver: %s' % VER)
                         self.msg(
                             u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
@@ -986,7 +986,7 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, 'cache_save, cache_load, cache_status')
 
                 if auth:
-                    if msg.startswith('add'):
+                    if command == 'add':
 
                         cmd = msg.split(' ', 2)[1].lower()
                         data = msg.split(' ', 2)[2]
@@ -1002,7 +1002,7 @@ class Arsenic(irc.IRCClient):
                                 '!', 1)[0], 'Added the command %s with value %s' %
                                             (cmd, data))
 
-                    elif msg.startswith('del'):
+                    elif command == 'del':
 
                         cmd = msg.split(' ')[1].lower()
 
@@ -1028,7 +1028,7 @@ class Arsenic(irc.IRCClient):
                         self.msg(u, 'kick {channel} {name} {optional reason}')
                         self.msg(u, 'ban/unban {channel} {hostmask}')
 
-                    elif msg.startswith('mod_update'):
+                    elif command == 'mod_update':
                         mod = msg.split(' ')[1]
 
                         if not mod in modlook:
