@@ -8,6 +8,7 @@ create table command (
 );
 
 create table profile (
+    username text unique,
     nickname text unique,
     ident text,
     hostmask text unique,
