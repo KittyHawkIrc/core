@@ -12,13 +12,10 @@ This is WIP code under active development.
 
 """
 import ConfigParser
-import StringIO
 import anydbm
-import cProfile
 import imp
 import os
 import platform
-import pstats
 import sqlite3
 import sys
 import time
@@ -31,14 +28,12 @@ from twisted.words.protocols import irc
 
 import encoder  # Local module, can be overridden with mod_load
 
-pr = cProfile.Profile()
-
 
 class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b7'
+VER = '1.4.0b8'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -772,21 +767,6 @@ class Arsenic(irc.IRCClient):
                         else:
                             self.msg(self.profile.nickname, 'Error, no user was found.')
 
-                    elif command == 'prof_on':
-                        pr.enable()
-                        self.msg(u, 'profiling on')
-
-                    elif command == 'prof_off':
-                        pr.disable()
-                        self.msg(u, 'profiling off')
-
-                    elif command == 'prof_stat':
-                        s = StringIO.StringIO()
-                        sortby = 'cumulative'
-                        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-                        ps.print_stats()
-                        self.msg(u, s.getvalue())
-
                     elif command == 'mod_inject':
                         mod = msg.split(' ')[1]
                         url = msg.split(' ')[2]
@@ -967,9 +947,7 @@ class Arsenic(irc.IRCClient):
                         self.msg(
                             u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
                         self.msg(
-                            u, 'prof_on, prof_off (enable or disable profiling, DO NOT USE)')
-                        self.msg(
-                            u, 'restart, prof_stat (Restart or display profiling stats (see ^))')
+                            u, 'restart,  (Restarts)')
                         self.msg(
                             u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
                         self.msg(
