@@ -212,6 +212,8 @@ class Profile:
         ident = usermask.split('!', 1)[1].split('@', 1)[0]
         hostmask = usermask.split('@', 1)[1]
 
+        trusted = True
+
         c = self.connector.execute('select * from profile where hostmask = ?',
                                    (hostmask,))
 
@@ -232,6 +234,7 @@ class Profile:
 
                 else:
                     log.msg("Notice: %s not trustable" % (usermask))
+                    trusted = False
                     u = tmp_u
 
             else:
@@ -288,7 +291,7 @@ class Profile:
         else:
             isverified = False
 
-        if u[12] == 1:
+        if u[12] == 1 and trusted:
             isop = True
         else:
             isop = False
@@ -311,6 +314,7 @@ class Profile:
         setattr(user, 'privacy', privacy)
         setattr(user, 'isverified', isverified)
         setattr(user, 'isop', isop)
+        setattr(user, 'trusted', trusted)
 
         return user
 
