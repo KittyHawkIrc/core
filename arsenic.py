@@ -205,6 +205,9 @@ class Profile:
 
     def getuser(self, usermask):
 
+        if not usermask:
+            return False
+
         nick = usermask.split('!', 1)[0]
         ident = usermask.split('!', 1)[1].split('@', 1)[0]
         hostmask = usermask.split('@', 1)[1]
@@ -219,7 +222,17 @@ class Profile:
 
             tmp_u = c.fetchone()
             if tmp_u is None:
-                return self.getuser(self.register(usermask))
+
+                c = self.connector.execute('select * from profile where nickname = ? or ident = ?', (nick, ident,))
+
+                tmp_u = c.fetchone()
+
+                if tmp_u is None:
+                    return self.getuser(self.register(usermask))
+
+                else:
+                    log.msg("Notice: %s not trustable" % (usermask))
+                    u = tmp_u
 
             else:
                 log.msg("Updating hostmask for " + nick)
