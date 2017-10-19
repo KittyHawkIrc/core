@@ -33,7 +33,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b8'
+VER = '1.4.0b9'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -192,8 +192,8 @@ class Profile:
         hostmask = usermask.split('@', 1)[1]
 
         try:
-            self.connector.execute('insert into profile(nickname, ident, hostmask) values (?, ?, ?)',
-                                   (nick, ident, hostmask,))
+            self.connector.execute('insert into profile(username, nickname, ident, hostmask) values (?, ?, ?, ?)',
+                                   (nick, nick, ident, hostmask,))
             self.connector.commit()
 
             log.msg("Created user %s" % nick)
@@ -854,7 +854,10 @@ class Arsenic(irc.IRCClient):
 
                         old = self
                         self.__class__ = update.Arsenic
-                        self = update.Arsenic(old)
+                        self = update.Arsenic(self, irc.IRCClient)
+
+                        setattr(self, 'IRCClient', irc.IRCClient)
+                        setattr(self, 'err', self)
 
                         self.msg(u, 'Attempted runtime patching (%s)' % VER)
 
