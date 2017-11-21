@@ -33,7 +33,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b9'
+VER = '1.4.0b10'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -191,8 +191,14 @@ class Profile:
         ident = usermask.split('!', 1)[1].split('@', 1)[0]
         hostmask = usermask.split('@', 1)[1]
 
+        c = self.connector.execute('SELECT * FROM users WHERE nickname = ?', (nick,))  # Check if username exists
+        if c.fetchone() == None:
+            return
+
         try:
-            self.connector.execute('insert into profile(username, nickname, ident, hostmask) values (?, ?, ?, ?)',
+            self.connector.execute('insert into profile(username) values (?)',
+                                   (nick,))
+            self.connector.execute('insert into users(username, nickname, ident, hostmask) values (?, ?, ?, ?)',
                                    (nick, nick, ident, hostmask,))
             self.connector.commit()
 
@@ -214,18 +220,23 @@ class Profile:
 
         trusted = True
 
-        c = self.connector.execute('select * from profile where hostmask = ?',
-                                   (hostmask,))
+        c = self.connector.execute(
+            'SELECT * FROM profile WHERE profile.username = (SELECT username FROM users WHERE hostmask = ?)',
+            (hostmask,))
 
         tmp_u = c.fetchone()
 
         if tmp_u is None:
-            c = self.connector.execute('select * from profile where nickname = ? and ident = ?', (nick, ident,))
+            c = self.connector.execute(
+                'SELECT * FROM profile WHERE profile.username = (SELECT username from users where nickname = ? and ident = ?)',
+                (nick, ident,))
 
             tmp_u = c.fetchone()
             if tmp_u is None:
 
-                c = self.connector.execute('select * from profile where nickname = ? or ident = ?', (nick, ident,))
+                c = self.connector.execute(
+                    'SELECT * FROM profile WHERE profile.username = (select username from users where nickname = ? or ident = ?)',
+                    (nick, ident,))
 
                 tmp_u = c.fetchone()
 
@@ -239,7 +250,7 @@ class Profile:
 
             else:
                 log.msg("Updating hostmask for " + nick)
-                self.connector.execute('update profile set hostmask = ? where nickname = ?', (hostmask, nick,))
+                self.connector.execute('update users set hostmask = ? where nickname = ?', (hostmask, nick,))
                 self.connector.commit()
                 return self.getuser(usermask)
 
@@ -250,48 +261,51 @@ class Profile:
 
         username = u[0]
 
-        if nick != u[1]:
-            self.connector.execute('update profile set nickname = ? where username = ?', (nick, username,))
+        old_nick_conn = self.connector.execute('SELECT * FROM users WHERE username = ?', (username,))
+        old_nick = old_nick_conn.fetchone()[1]
+
+        if nick != old_nick:
+            self.connector.execute('update users set nickname = ? where username = ?', (nick, username,))
             self.connector.commit()
 
-        loc_lat = u[4]
-        loc_lng = u[5]
+        loc_lat = u[1]
+        loc_lng = u[2]
 
-        if u[6] is not None:
-            if u[6] == 0:
+        if u[3] is not None:
+            if u[3] == 0:
                 unit = 'us'
-            elif u[6] == 1:
+            elif u[3] == 1:
                 unit = 'si'
-            elif u[6] == 2:
+            elif u[3] == 2:
                 unit = 'ca'
-            elif u[6] == 3:
+            elif u[3] == 3:
                 unit = 'uk2'
             else:
                 unit = 'us'
         else:
             unit = 'us'
 
-        if u[7] == 0:
+        if u[4] == 0:
             gender = False
-        elif u[7] == 1:
+        elif u[4] == 1:
             gender = True
         else:
             gender = None
 
-        height = u[8]  # cm
-        weight = u[9]  # kg
+        height = u[5]  # cm
+        weight = u[6]  # kg
 
-        if u[10] == 1:
+        if u[7] == 1:
             privacy = True
         else:
             privacy = False
 
-        if u[11] == 1:
+        if u[8] == 1:
             isverified = True
         else:
             isverified = False
 
-        if u[12] == 1 and trusted:
+        if u[9] == 1 and trusted:
             isop = True
         else:
             isop = False
@@ -320,7 +334,7 @@ class Profile:
 
     def getuser_byname(self, username):  # Caution, user not authenticated
 
-        c = self.connector.execute('select * from profile where username = ?', (username,))
+        c = self.connector.execute('select * from users where username = ?', (username,))
         u = c.fetchone()
 
         if u:
@@ -331,7 +345,7 @@ class Profile:
 
     def getuser_bynick(self, nickname):  # Caution, user not authenticated
 
-        c = self.connector.execute('SELECT * FROM profile WHERE nickname = ?', (nickname,))
+        c = self.connector.execute('SELECT * FROM users WHERE nickname = ?', (nickname,))
         u = c.fetchone()
 
         if u:
@@ -344,15 +358,16 @@ class Profile:
                height=None, weight=None, privacy=None, isverified=None, isop=None):
 
         sql_str = 'update profile set'
+        sql_user_str = 'update user set'
 
         if nickname is not None:
-            sql_str += '  nickname = "%s", ' % (self.__SafeSQL__(nickname))
+            sql_user_str += '  nickname = "%s", ' % (self.__SafeSQL__(nickname))
 
         if ident is not None:
-            sql_str += '  ident = "%s", ' % (self.__SafeSQL__(ident))
+            sql_user_str += '  ident = "%s", ' % (self.__SafeSQL__(ident))
 
         if hostname is not None:
-            sql_str += '  hostname = "%s", ' % (self.__SafeSQL__(hostname))
+            sql_user_str += '  hostname = "%s", ' % (self.__SafeSQL__(hostname))
 
         if lat is not None:
             try:
@@ -432,10 +447,16 @@ class Profile:
                 isop = 0
             sql_str += '  isop = "%s", ' % (isop)
 
-        sql_str = '%s where nickname = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
+        if '=' in sql_str:
+            sql_str = '%s where nickname = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
+            self.connector.execute(sql_str)
+
+        if '=' in sql_user_str:
+            sql_user_str = '%s where nickname = "%s";' % (
+            sql_user_str[0:len(sql_user_str) - 2], self.__SafeSQL__(username))
+            self.connector.execute(sql_user_str)
 
         try:
-            self.connector.execute(sql_str)
             self.connector.commit()
             return True
 
@@ -675,8 +696,6 @@ class Arsenic(irc.IRCClient):
 
         if not channel.startswith('#'):
             channel = self.nickname
-
-
 
         profile = self.profileManager.getuser(user)
 
