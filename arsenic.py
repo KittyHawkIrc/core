@@ -306,7 +306,7 @@ class Profile:
         setattr(user, 'hostname', hostmask)
         setattr(user, 'userhost', usermask)
         setattr(user, 'lat', loc_lat)
-        setattr(user, 'lng', loc_lng)
+        setattr(user, 'lon', loc_lng)
         setattr(user, 'unit', unit)
         setattr(user, 'gender', gender)
         setattr(user, 'height', height)
@@ -329,7 +329,18 @@ class Profile:
         else:
             return False
 
-    def update(self, username, nickname=None, ident=None, hostname=None, lat=None, lng=None, unit=None, gender=None,
+    def getuser_bynick(self, nickname):  # Caution, user not authenticated
+
+        c = self.connector.execute('SELECT * FROM profile WHERE nickname = ?', (nickname,))
+        u = c.fetchone()
+
+        if u:
+            return self.getuser('%s!%s@%s' % (u[1], u[2], u[3]))
+
+        else:
+            return False
+
+    def update(self, username, nickname=None, ident=None, hostname=None, lat=None, lon=None, unit=None, gender=None,
                height=None, weight=None, privacy=None, isverified=None, isop=None):
 
         sql_str = 'update profile set'
@@ -351,12 +362,12 @@ class Profile:
                 log.msg("Error, could not turn lat in to float")
                 return False
 
-        if lng is not None:
+        if lon is not None:
             try:
-                lng = float(lng)  # Check if valid number
-                sql_str += '  loc_lng = "%s", ' % lng
+                lon = float(lon)  # Check if valid number
+                sql_str += '  loc_lng = "%s", ' % lon
             except:
-                log.msg("Error, could not turn lng in to float")
+                log.msg("Error, could not turn lon in to float")
                 return False
 
         if unit is not None:
