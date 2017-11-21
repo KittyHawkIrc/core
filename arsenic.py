@@ -13,6 +13,7 @@ This is WIP code under active development.
 """
 import ConfigParser
 import anydbm
+import hashlib
 import imp
 import os
 import platform
@@ -20,6 +21,7 @@ import sqlite3
 import sys
 import time
 import urllib2
+import uuid
 
 import dill as pickle
 from twisted.internet import protocol, reactor, ssl
@@ -33,7 +35,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b10'
+VER = '1.4.0b11'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -134,6 +136,13 @@ else:
 
 log.msg("KittyHawk %s, log: %s" % (VER, file_log))
 
+salt = config_get('main', 'salt')
+
+if not salt:
+    salt = uuid.uuid4().hex
+    config_set('main', 'salt', salt)
+    print "Notice: a new salt was generated"
+
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
 mod_declare_syncmsg = {}
@@ -192,7 +201,7 @@ class Profile:
         hostmask = usermask.split('@', 1)[1]
 
         c = self.connector.execute('SELECT * FROM users WHERE nickname = ?', (nick,))  # Check if username exists
-        if c.fetchone() == None:
+        if c.fetchone() != None:
             return
 
         try:
@@ -464,6 +473,42 @@ class Profile:
             log.msg("Unable to commit profile changes, does the user exist?")
             return False
 
+    def set_password(self, username, password):
+        pw = hashlib.sha512(username + password + salt).hexdigest()
+
+        self.connector.execute('UPDATE profile SET password = ? WHERE username = ?', (pw, username,))
+        self.connector.commit()
+
+    def check_if_password(self, username):
+        c = self.connector.execute('SELECT password FROM profile WHERE username = ?', (username,))
+        pw = c.fetchone()[0]
+
+        if pw:
+            return True
+        else:
+            return False
+
+    def validate_password(self, username, password):
+        new_pw = hashlib.sha512(username + password + salt).hexdigest()
+
+        c = self.connector.execute('SELECT password FROM profile WHERE username = ?', (username,))
+        old_pw = c.fetchone()[0]
+
+        if new_pw == old_pw:
+            return True
+        else:
+            return False
+
+    def link(self, username, password, nickname):
+        if self.validate_password(username, password):
+            self.connector.execute('UPDATE users SET username = ? WHERE nickname = ?', (username, nickname,))
+            self.connector.commit()
+            return True
+        else:
+            return False
+
+
+
 def save():
     clist = ''
     slist = ''
@@ -724,7 +769,8 @@ class Arsenic(irc.IRCClient):
         else:
             command = command
 
-        if iskey or (channel == self.nickname and auth):
+        if iskey or (channel == self.nickname and (
+                    auth or command == 'set_password' or command == 'change_password' or command == 'link')):
 
             setattr(self, 'isop', auth)
             setattr(self, 'isowner', owner)
@@ -1088,7 +1134,62 @@ class Arsenic(irc.IRCClient):
                         except:
                             self.msg(u, 'an error occured updating the module')
 
-                if command in mod_declare_privmsg:
+                if command == 'set_password':
+                    if self.profile.trusted:
+                        try:
+                            password = msg.split(' ')[1]
+                        except:
+                            self.msg(u, 'Please message me a password after set_password to set your first password')
+                            return
+
+                        if self.profileManager.check_if_password(self.profile.username):
+                            self.msg(u, 'You have a password set already, please use change_password {old pw} {new pw}')
+                            return
+
+                        else:
+                            self.profileManager.set_password(self.profile.username, password)
+                            self.msg(u, 'Password set! Use link {pw} to link your profile to a new name.')
+
+                elif command == 'change_password':
+                    if self.profile.trusted:
+                        try:
+                            old_pw = msg.split(' ')[1]
+                            new_pw = msg.split(' ')[2]
+                        except:
+                            self.msg(u, 'Please message me your old then new password after change_password.')
+                            return
+
+                        if not self.profileManager.check_if_password(self.profile.username):
+                            self.msg(u, 'You have no password set, please use set_password {password}')
+                            return
+
+                        else:
+                            if self.profileManager.validate_password(self.profile.username, old_pw):
+                                self.profileManager.set_password(self.profile.username, new_pw)
+                                self.msg(u, 'Password set! Use link {pw} to link your profile to a new name.')
+                            else:
+                                self.msg(u, 'Your password was incorrect.')
+
+                elif command == 'link':
+                    try:
+                        pw = msg.split(' ')[2]
+                        username = msg.split(' ')[1]
+                    except:
+                        self.msg(u, 'Please message me your username then your password.')
+                        return
+
+                    if not self.profileManager.check_if_password(username):
+                        self.msg(u, 'You have no password set, please use set_password {password}')
+                        return
+
+                    else:
+                        if self.profileManager.link(username, pw, self.profile.nickname):
+                            self.msg(u, "You've successfully linked your account to " + username)
+                        else:
+                            self.msg(u, 'Your password was incorrect.')
+
+
+                elif command in mod_declare_privmsg:
                     modlook[
                         mod_declare_privmsg[
                             command]].callback(
@@ -1108,6 +1209,8 @@ class Arsenic(irc.IRCClient):
 
                     self.msg(
                         u, 'Howdy, %s, please visit https://commands.tox.im to view the commands.' % u)
+                    self.msg(u,
+                             'You can also manage your profile with set_password {pw}, change_password {old pw} {new pw}, or link a new name to a profile with link {username} {pw}')
 
                 else:
                     c = conn.execute(
