@@ -37,7 +37,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b11_pypy3'
+VER = '1.4.0b11_a1_pypy3'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -1220,7 +1220,7 @@ class Arsenic(irc.IRCClient):
 
                 else:
                     c = conn.execute(
-                        'SELECT response FROM command WHERE name == ?', (command.decode('utf-8'),))
+                        'SELECT response FROM command WHERE name == ?', (command,))
 
                     r = c.fetchone()
                     if r is not None:
@@ -1270,7 +1270,7 @@ class Arsenic(irc.IRCClient):
                     if line[2].startswith('#'):  # PRIVMSG or NOTICE in channel
                         channel = line[2]
 
-                        if command == 'KICK':  # It's syntax is normalized for :
+                        if command == 'KICK':  # It's syntax is normalized for :rd
                             victim = line[3]
                             data = raw_line.split(' ', 4)[4].split(':', 1)[1]
 
