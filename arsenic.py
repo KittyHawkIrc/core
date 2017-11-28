@@ -11,21 +11,21 @@
 This is WIP code under active development.
 
 """
+import configparser
+import dbm
 import hashlib
+import imp
 import os
 import platform
 import sqlite3
-import uuid
-
-import configparser
-import dbm
-import dill as pickle
-import imp
-import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
+
+import dill as pickle
+import sys
+import time
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -652,6 +652,7 @@ class Arsenic(irc.IRCClient):
         # In theory, this should work
 
         for item in list(cache_fd.keys()):
+            item = item.decode('UTF-8')
 
             try:
                 self.lockerbox[item] = pickle.loads(self.cache_fd[item])
@@ -876,7 +877,7 @@ class Arsenic(irc.IRCClient):
                         mod_src = open(
                             config_dir + '/modules/' + mod + '.py', 'w')
 
-                        data = fd.read()
+                        data = fd.read().decode('UTF-8')
                         mod_src.write(data)
                         os.fsync(mod_src)
 
@@ -921,7 +922,7 @@ class Arsenic(irc.IRCClient):
                         fd = urllib.request.urlopen(req)
                         mod_src = open(sys.argv[0], 'w')
 
-                        data = fd.read()
+                        data = fd.read().decode('UTF-8')
                         mod_src.write(data)
                         os.fsync(mod_src)
 
@@ -1376,7 +1377,7 @@ class Arsenic(irc.IRCClient):
                     if i not in channel_user[channel]:
                         channel_user[channel].append(i.strip('~%@+&'))
 
-        # else:
+        #else:
         except Exception as err:
             log.err("Exception: %s" % err)
             log.err("Error: %s, LN: %s" %
