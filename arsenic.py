@@ -14,16 +14,16 @@ This is WIP code under active development.
 import ConfigParser
 import anydbm
 import hashlib
-import imp
 import os
 import platform
 import sqlite3
-import sys
-import time
 import urllib2
 import uuid
 
 import dill as pickle
+import imp
+import sys
+import time
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -633,12 +633,19 @@ class Arsenic(irc.IRCClient):
         self.cache_fd.close()
         self.cache_fd = anydbm.open(cache_name, 'c')
 
-    def cache_save(self):
+    def cache_save_all(self):
 
         for item in self.lockerbox:
             self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
 
         self.cache_reopen()
+
+    def cache_save(self, item):  # save 1 item to reduce overhead
+
+        self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
+
+        self.cache_reopen()
+
 
     def cache_load(self):
         # In theory, this should work
@@ -759,7 +766,6 @@ class Arsenic(irc.IRCClient):
                 self.syncmsg(user, lower_channel,
                              sync_channels[lower_channel], msg)
 
-        self.cache_save()
 
         iskey = False
 
@@ -789,7 +795,6 @@ class Arsenic(irc.IRCClient):
                     self.lockerbox[mod_declare_privmsg[
                         command]] = self.persist()
 
-                self.cache_save()
 
                 # attributes
                 setattr(self, 'store', save)
@@ -1018,7 +1023,7 @@ class Arsenic(irc.IRCClient):
                             self.msg(u, 'Channel not currently being synced')
 
                     elif command == 'cache_save':
-                        self.cache_save()
+                        self.cache_save_all()
 
                     elif command == 'cache_load':
                         self.cache_load()
@@ -1202,8 +1207,7 @@ class Arsenic(irc.IRCClient):
                         mod_declare_privmsg[
                             command]].callback(
                         self)
-
-                    self.cache_save()
+                    self.cache_save(mod_declare_privmsg[command])  # Save the cache only when a module is called
 
                 elif msg.startswith(key + 'help'):
 
