@@ -11,19 +11,21 @@
 This is WIP code under active development.
 
 """
-import ConfigParser
-import anydbm
 import hashlib
 import os
 import platform
 import sqlite3
-import urllib2
 import uuid
 
+import configparser
+import dbm
 import dill as pickle
 import imp
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -35,7 +37,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b11'
+VER = '1.4.0b11_pypy3'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -49,9 +51,9 @@ except:
     raise conf(
         'arsenic takes a single argument, --config=/path/to/config/dir')
 
-cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r+b')
-config = ConfigParser.ConfigParser()
-config.readfp(cfile)
+cfile = os.path.join(config_dir, 'kgb.conf')
+config = configparser.ConfigParser()
+config.read(cfile)
 
 
 def config_save():
@@ -60,7 +62,6 @@ def config_save():
     cfile.flush()  # situation where we have 2
     config.write(cfile)  # configs in one file
     cfile.flush()
-
 
 def config_get(module, item, default=False):
     if config.has_option(module, item):
@@ -88,7 +89,7 @@ def config_remove(module, item):
         return False
 
 
-hostname = config_get('network', 'hostname')
+hostname = config.get('network', 'hostname')
 if not hostname:
     raise conf('Unable to read hostname')
 
@@ -105,7 +106,7 @@ if oplist:
             oplist.add(encoder.decode(user))
 
 else:
-    print 'Unable to read ops, assuming none'
+    print('Unable to read ops, assuming none')
     oplist = []
 
 ownerlist = oplist
@@ -115,7 +116,7 @@ modlook = {}
 modules = config_get('main', 'mod').replace(' ', '').split(',')
 
 if not modules:
-    print 'Unable to read modules, assuming none'
+    print('Unable to read modules, assuming none')
     modules = []
 
 # relays messages without a log
@@ -141,7 +142,7 @@ salt = config_get('main', 'salt')
 if not salt:
     salt = uuid.uuid4().hex
     config_set('main', 'salt', salt)
-    print "Notice: a new salt was generated"
+    print("Notice: a new salt was generated")
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
@@ -178,8 +179,8 @@ cache_name = os.path.join(config_dir, cache_name)
 
 cache_state = 1
 
-print "Using cache: " + cache_name
-cache_fd = anydbm.open(cache_name, 'c')
+print("Using cache: " + cache_name)
+cache_fd = dbm.open(cache_name, 'c')
 
 
 if os.path.isfile(db_name) is False:
@@ -526,7 +527,7 @@ def save():
         if slist[0] != '#':
             slist = slist[1:]
 
-        print slist
+        print(slist)
         config.set('main', 'sync_channel', slist)
 
     except:
@@ -631,7 +632,7 @@ class Arsenic(irc.IRCClient):
 
     def cache_reopen(self):
         self.cache_fd.close()
-        self.cache_fd = anydbm.open(cache_name, 'c')
+        self.cache_fd = dbm.open(cache_name, 'c')
 
     def cache_save_all(self):
 
@@ -650,7 +651,7 @@ class Arsenic(irc.IRCClient):
     def cache_load(self):
         # In theory, this should work
 
-        for item in cache_fd.keys():
+        for item in list(cache_fd.keys()):
 
             try:
                 self.lockerbox[item] = pickle.loads(self.cache_fd[item])
@@ -868,10 +869,10 @@ class Arsenic(irc.IRCClient):
                     elif command == 'mod_inject':
                         mod = msg.split(' ')[1]
                         url = msg.split(' ')[2]
-                        req = urllib2.Request(
+                        req = urllib.request.Request(
                             url, headers={'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC'})
 
-                        fd = urllib2.urlopen(req)
+                        fd = urllib.request.urlopen(req)
                         mod_src = open(
                             config_dir + '/modules/' + mod + '.py', 'w')
 
@@ -893,7 +894,7 @@ class Arsenic(irc.IRCClient):
                         modlook[mod] = imp.new_module(mod)
                         sys.modules[mod] = modlook[mod]
 
-                        exec mod_bytecode in modlook[mod].__dict__
+                        exec (mod_bytecode, modlook[mod].__dict__)
 
                         declare_table = modlook[mod].declare()
 
@@ -914,10 +915,10 @@ class Arsenic(irc.IRCClient):
                             url = msg.split(' ')[1]
                         except:
                             url = 'https://raw.githubusercontent.com/KittyHawkIRC/core/master/arsenic.py'
-                        req = urllib2.Request(
+                        req = urllib.request.Request(
                             url, headers={'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC'})
 
-                        fd = urllib2.urlopen(req)
+                        fd = urllib.request.urlopen(req)
                         mod_src = open(sys.argv[0], 'w')
 
                         data = fd.read()
@@ -948,7 +949,7 @@ class Arsenic(irc.IRCClient):
                         mod_src.close()
 
                         update = imp.new_module('update')
-                        exec mod_bytecode in update.__dict__
+                        exec (mod_bytecode, update.__dict__)
 
                         old = self
                         self.__class__ = update.Arsenic
@@ -1123,7 +1124,7 @@ class Arsenic(irc.IRCClient):
                         try:
                             # Impersonate the first owner, yolo
                             op = 'fake!' + list(ownerlist)[0]
-                        except Exception, err:
+                        except Exception as err:
                             log.err(err)
                             self.msg(u, 'Error, no owners are defined')
                             return
@@ -1250,6 +1251,8 @@ class Arsenic(irc.IRCClient):
         user = ''
         command = ''
         victim = ''
+
+        line = line.decode('UTF-8')  # force bytes to str
 
         raw_line = line
         # :coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
@@ -1414,7 +1417,7 @@ if __name__ == '__main__':
 
         modlook[mod] = imp.new_module(mod)
         sys.modules[mod] = modlook[mod]
-        exec mod_bytecode in modlook[mod].__dict__
+        exec (mod_bytecode, modlook[mod].__dict__)
 
         declare_table = modlook[mod].declare()
 

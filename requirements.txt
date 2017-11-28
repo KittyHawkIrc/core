@@ -1,5 +1,4 @@
 dill
 pyopenssl
-pysqlite
 twisted
 service_identity
