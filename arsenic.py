@@ -11,16 +11,24 @@
 This is WIP code under active development.
 
 """
-import configparser
+try:
+    import configparser
+except:
+    import ConfigParser as configparser  # Py2 support
+
 import dbm
 import hashlib
 import imp
 import os
 import platform
 import sqlite3
-import urllib.error
-import urllib.parse
-import urllib.request
+
+try:
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+except:
+    import urllib
 import uuid
 
 import dill as pickle
@@ -750,6 +758,7 @@ class Arsenic(irc.IRCClient):
 
         if not channel.startswith('#'):
             channel = self.nickname
+
 
         profile = self.profileManager.getuser(user)
 
