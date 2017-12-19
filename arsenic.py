@@ -11,19 +11,19 @@
 This is WIP code under active development.
 
 """
-import ConfigParser
-import anydbm
 import hashlib
+import imp
 import os
 import platform
 import sqlite3
-import urllib2
 import uuid
 
+import ConfigParser
+import anydbm
 import dill as pickle
-import imp
 import sys
 import time
+import urllib2
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -35,7 +35,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b11'
+VER = '1.4.0b12'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -146,8 +146,6 @@ if not salt:
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
 mod_declare_syncmsg = {}
-
-channel_user = {}
 
 sync_channels = {}
 
@@ -684,7 +682,6 @@ class Arsenic(irc.IRCClient):
             self.setNick(nickname)
 
         for i in channel_list:
-            channel_user[i.lower()] = [self.nickname]
             self.join(i)
 
         self.cache_load()  # load cached lockerbox
@@ -733,7 +730,7 @@ class Arsenic(irc.IRCClient):
     def userJoined(self, cbuser, cbchannel):
         setattr(self, 'type', 'userjoin')
         if cbuser != self.nickname:
-            setattr(self, 'user', self.profileManager.getuser(cbuser))
+            setattr(self, 'user', self.profileManager.getuser_bynick(cbuser))
         setattr(self, 'channel', cbchannel)
         setattr(self, 'ver', VER)
 
@@ -1325,28 +1322,12 @@ class Arsenic(irc.IRCClient):
                 elif command == 'JOIN':
                     user = user.split('!', 1)[0]
                     self.userJoined(user, channel)
-                    channel_user[channel.lower()] = [user.strip('~%@+&')]
 
                 elif command == 'PART':
                     user = user.split('!', 1)[0]
 
-                    if channel.lower() in channel_user:
-                        if user in channel_user[channel.lower()]:
-                            channel_user[channel.lower()].remove(user)
-                        else:
-                            log.err(
-                                "Warning: Tried to remove unknown user. (%s)" % user)
-
-                    else:
-                        log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (
-                            channel.lower(), user))
-
                 elif command == 'QUIT':
                     user = user.split('!', 1)[0]
-
-                    for i in channel_user:
-                        if user in channel_user[i]:
-                            channel_user[i].remove(user)
 
                 elif command == 'KICK':
                     # checks if we got kicked
@@ -1364,14 +1345,6 @@ class Arsenic(irc.IRCClient):
                 else:
                     channel = line[4].lower()
                     raw_user = raw_line.split(' ', 5)[5].split(':', 1)[1]
-
-                if channel not in channel_user:
-                    channel_user[channel] = [self.nickname]
-
-                for i in raw_user.split(' '):
-
-                    if i not in channel_user[channel]:
-                        channel_user[channel].append(i.strip('~%@+&'))
 
         # else:
         except Exception as err:
