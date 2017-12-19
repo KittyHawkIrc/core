@@ -11,19 +11,19 @@
 This is WIP code under active development.
 
 """
+import ConfigParser
+import anydbm
 import hashlib
-import imp
 import os
 import platform
 import sqlite3
+import urllib2
 import uuid
 
-import ConfigParser
-import anydbm
 import dill as pickle
+import imp
 import sys
 import time
-import urllib2
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -141,7 +141,7 @@ salt = config_get('main', 'salt')
 if not salt:
     salt = uuid.uuid4().hex
     config_set('main', 'salt', salt)
-    print "Notice: a new salt was generated"
+    log.msg("Notice: a new salt was generated")
 
 mod_declare_privmsg = {}
 mod_declare_userjoin = {}
@@ -176,7 +176,9 @@ cache_name = os.path.join(config_dir, cache_name)
 
 cache_state = 1
 
-print "Using cache: " + cache_name
+if debug:
+    log.msg("Using cache: " + cache_name)
+
 cache_fd = anydbm.open(cache_name, 'c')
 
 
@@ -1156,6 +1158,7 @@ class Arsenic(irc.IRCClient):
                     if self.profile.trusted:
                         try:
                             old_pw = msg.split(' ')[1]
+
                             new_pw = msg.split(' ')[2]
                         except:
                             self.msg(u, 'Please message me your old then new password after change_password.')
