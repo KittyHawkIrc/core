@@ -16,14 +16,19 @@ import anydbm
 import hashlib
 import os
 import platform
-import sqlite3
 import urllib2
 import uuid
+from sqlite3 import *
+from sqlite3 import connect as _connect
 
 import dill as pickle
 import imp
 import sys
 import time
+from apsw import Connection as _ApswConnection
+from apsw import SQLITE_OPEN_CREATE as _SQLITE_OPEN_CREATE
+from apsw import SQLITE_OPEN_READWRITE as _SQLITE_OPEN_READWRITE
+from apsw import SQLITE_OPEN_URI as _SQLITE_OPEN_URI
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -35,7 +40,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b12'
+VER = '1.4.0b13'
 
 try:
     if sys.argv[1].startswith('--config='):
@@ -1306,7 +1311,7 @@ class Arsenic(irc.IRCClient):
 
             if not command.isdigit():
 
-                if command == 'NOTICE' and 'connected' in data.lower() and isconnected == False:
+                if ('connected' in data.lower() or '+z' in data.lower()) and isconnected == False:
                     # DIRTY FUCKING HACK
                     # 100% UNSAFE. DO NOT USE THIS IN PRODUCTION
                     # Proposed fixes: No idea,
@@ -1315,6 +1320,7 @@ class Arsenic(irc.IRCClient):
                     self.connectionMade()
                     self.signedOn()
                     isconnected = True  # dirter hack, makes sure this only runs once
+                    log.msg("Connected to server!")
 
                 if command == 'PING':
                     self.sendLine('PONG ' + server)
@@ -1381,6 +1387,24 @@ class ArsenicFactory(protocol.ClientFactory):
 
 
 if __name__ == '__main__':
+
+    _connect(':memory:').close()
+
+
+    def connect(database, timeout=5.0, detect_types=0, isolation_level=None,
+                check_same_thread=True, factory=Connection, cached_statements=100,
+                uri=False):
+        flags = _SQLITE_OPEN_READWRITE | _SQLITE_OPEN_CREATE
+
+        if uri:
+            flags |= _SQLITE_OPEN_URI
+
+        db = _ApswConnection(database, flags, None, cached_statements)
+        conn = _connect(db, timeout, detect_types, isolation_level,
+                        check_same_thread, factory, cached_statements)
+
+        return conn
+
     conn = sqlite3.connect(db_name)
 
     for mod in modules:
