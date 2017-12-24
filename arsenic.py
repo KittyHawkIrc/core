@@ -88,6 +88,20 @@ def config_remove(module, item):
         return False
 
 
+# relays messages without a log
+
+debug = config.getboolean('main', 'debug')
+
+if debug:
+    file_log = 'stdout'
+    log.startLogging(sys.stdout)
+else:
+    file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
+    log.startLogging(open(file_log, 'w'))
+
+log.msg("KittyHawk %s, log: %s" % (VER, file_log))
+
+
 hostname = config_get('network', 'hostname')
 if not hostname:
     raise conf('Unable to read hostname')
@@ -105,36 +119,22 @@ if oplist:
             oplist.add(encoder.decode(user))
 
 else:
-    print 'Unable to read ops, assuming none'
+    log.err('Unable to read ops, assuming none')
     oplist = []
 
 ownerlist = oplist
-
 modlook = {}
 
 modules = config_get('main', 'mod').replace(' ', '').split(',')
 
 if not modules:
-    print 'Unable to read modules, assuming none'
+    log.err('Unable to read modules, assuming none')
     modules = []
-
-# relays messages without a log
-
-debug = config.getboolean('main', 'debug')
 
 updateconfig = config.getboolean('main', 'updateconfig')
 
 if not updateconfig:
     cfile.close()  # Close this if we don't need it later
-
-if debug:
-    file_log = 'stdout'
-    log.startLogging(sys.stdout)
-else:
-    file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
-    log.startLogging(open(file_log, 'w'))
-
-log.msg("KittyHawk %s, log: %s" % (VER, file_log))
 
 salt = config_get('main', 'salt')
 
@@ -525,7 +525,6 @@ def save():
         if slist[0] != '#':
             slist = slist[1:]
 
-        print slist
         config.set('main', 'sync_channel', slist)
 
     except:
@@ -1270,8 +1269,12 @@ class Arsenic(irc.IRCClient):
                             data = raw_line.split(' ', 4)[4].split(':', 1)[1]
 
                         elif command == 'MODE':
-                            victim = line[4]
-                            data = line[3]
+                            if len(line) == 4:  # Channel modes
+                                victim = line[2]
+                                data = line[3]
+                            else:
+                                victim = line[4]
+                                data = line[3]
 
                         elif command == 'PART':
                             if len(line) == 4:  # Implies part message
@@ -1353,11 +1356,8 @@ class Arsenic(irc.IRCClient):
                     raw_user = raw_line.split(' ', 5)[5].split(':', 1)[1]
 
         # else:
-        except Exception as err:
-            log.err("Exception: %s" % err)
-            log.err("Error: %s, LN: %s" %
-                    (raw_line, sys.exc_info()[-1].tb_lineno))
-
+        except:
+            log.err()
 
 class ArsenicFactory(protocol.ClientFactory):
     """Main irc connector"""
