@@ -457,7 +457,6 @@ class Profile:
 
         if '=' in sql_str:
             sql_str = '%s where username = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username.username))
-            print sql_str
             self.connector.execute(sql_str)
 
         if '=' in sql_user_str:
@@ -1255,8 +1254,8 @@ class Arsenic(irc.IRCClient):
         # :coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
         line = line.split(' ')
 
-        if True:
-            # try:
+        # if True:
+        try:
             if line[0].startswith(':'):  # 0 is user, so 1 is command
                 user = line[0].split(':', 1)[1]
                 command = line[1]
@@ -1350,8 +1349,8 @@ class Arsenic(irc.IRCClient):
                     channel = line[4].lower()
                     raw_user = raw_line.split(' ', 5)[5].split(':', 1)[1]
 
-        else:
-            #except Exception as err:
+        # else:
+        except Exception as err:
             log.err("Exception: %s" % err)
             log.err("Error: %s, LN: %s" %
                     (raw_line, sys.exc_info()[-1].tb_lineno))
