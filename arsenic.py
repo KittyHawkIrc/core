@@ -35,9 +35,9 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b13'
+VER = '1.4.0b14'
 
-try:
+if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
         config_dir = sys.argv[1].split('=', 1)[1]
         if config_dir == '':
@@ -45,7 +45,8 @@ try:
         else:
             if not os.path.isdir(config_dir):
                 raise conf('config path not found')
-except:
+else:
+    raise SystemExit(1)
     raise conf(
         'arsenic takes a single argument, --config=/path/to/config/dir')
 
@@ -96,7 +97,12 @@ if debug:
     file_log = 'stdout'
     log.startLogging(sys.stdout)
 else:
-    file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
+    log_path = os.path.join(config_dir, 'logs')
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+        log.msg("Notice: Created a log directory")
+
+    file_log = log_path + '/' + time.strftime("%Y_%m_%d-%H_%M_%S") + '.log'
     log.startLogging(open(file_log, 'w'))
 
 log.msg("KittyHawk %s, log: %s" % (VER, file_log))
@@ -104,11 +110,13 @@ log.msg("KittyHawk %s, log: %s" % (VER, file_log))
 
 hostname = config_get('network', 'hostname')
 if not hostname:
-    raise conf('Unable to read hostname')
+    log.err("Unable to read hostname")
+    raise SystemExit(1)
 
 port = config.getint('network', 'port')
 if not port:
-    raise conf('Unable to read port')
+    log.err("Unable to read port")
+    raise SystemExit(2)
 
 oplist = config_get('main', 'op')
 if oplist:
@@ -184,7 +192,7 @@ cache_fd = anydbm.open(cache_name, 'c')
 
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
-    raise SystemExit(0)
+    raise SystemExit(3)
 
 class Profile:
     def __init__(self, connector):
@@ -1417,7 +1425,7 @@ if __name__ == '__main__':
         f = ArsenicFactory(conn, channel_list[0], config_get('main', 'name'),
                            config_get('main', 'password'))
     except IndexError:
-        raise SystemExit(0)
+        raise SystemExit(4)
 
     reactor.connectSSL(hostname, port, f, ssl.ClientContextFactory())
 
