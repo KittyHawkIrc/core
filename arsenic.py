@@ -16,19 +16,14 @@ import anydbm
 import hashlib
 import os
 import platform
+import sqlite3
 import urllib2
 import uuid
-from sqlite3 import *
-from sqlite3 import connect as _connect
 
 import dill as pickle
 import imp
 import sys
 import time
-from apsw import Connection as _ApswConnection
-from apsw import SQLITE_OPEN_CREATE as _SQLITE_OPEN_CREATE
-from apsw import SQLITE_OPEN_READWRITE as _SQLITE_OPEN_READWRITE
-from apsw import SQLITE_OPEN_URI as _SQLITE_OPEN_URI
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -190,7 +185,6 @@ cache_fd = anydbm.open(cache_name, 'c')
 if os.path.isfile(db_name) is False:
     log.err("No database found!")
     raise SystemExit(0)
-
 
 class Profile:
     def __init__(self, connector):
@@ -462,11 +456,12 @@ class Profile:
             sql_str += '  isop = "%s", ' % (isop)
 
         if '=' in sql_str:
-            sql_str = '%s where nickname = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
+            sql_str = '%s where username = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username.username))
+            print sql_str
             self.connector.execute(sql_str)
 
         if '=' in sql_user_str:
-            sql_user_str = '%s where nickname = "%s";' % (
+            sql_user_str = '%s where username = "%s";' % (
             sql_user_str[0:len(sql_user_str) - 2], self.__SafeSQL__(username))
             self.connector.execute(sql_user_str)
 
@@ -1260,8 +1255,8 @@ class Arsenic(irc.IRCClient):
         # :coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
         line = line.split(' ')
 
-        # if True:
-        try:
+        if True:
+            # try:
             if line[0].startswith(':'):  # 0 is user, so 1 is command
                 user = line[0].split(':', 1)[1]
                 command = line[1]
@@ -1355,8 +1350,8 @@ class Arsenic(irc.IRCClient):
                     channel = line[4].lower()
                     raw_user = raw_line.split(' ', 5)[5].split(':', 1)[1]
 
-        # else:
-        except Exception as err:
+        else:
+            #except Exception as err:
             log.err("Exception: %s" % err)
             log.err("Error: %s, LN: %s" %
                     (raw_line, sys.exc_info()[-1].tb_lineno))
@@ -1387,23 +1382,6 @@ class ArsenicFactory(protocol.ClientFactory):
 
 
 if __name__ == '__main__':
-
-    _connect(':memory:').close()
-
-
-    def connect(database, timeout=5.0, detect_types=0, isolation_level=None,
-                check_same_thread=True, factory=Connection, cached_statements=100,
-                uri=False):
-        flags = _SQLITE_OPEN_READWRITE | _SQLITE_OPEN_CREATE
-
-        if uri:
-            flags |= _SQLITE_OPEN_URI
-
-        db = _ApswConnection(database, flags, None, cached_statements)
-        conn = _connect(db, timeout, detect_types, isolation_level,
-                        check_same_thread, factory, cached_statements)
-
-        return conn
 
     conn = sqlite3.connect(db_name)
 
