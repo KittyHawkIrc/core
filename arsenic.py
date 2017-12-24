@@ -1281,12 +1281,15 @@ class Arsenic(irc.IRCClient):
                                 data = ''
 
                         else:
-                            if line[3] == ':ACTION':  # /me, act like normal message
-                                data = raw_line.split(
-                                    ' ', 4)[4].split(':', 1)[1]
-                            else:
-                                data = raw_line.split(
-                                    ' ', 3)[3].split(':', 1)[1]
+                            try:
+                                if line[3] == ':ACTION':  # /me, act like normal message
+                                    data = raw_line.split(
+                                        ' ', 4)[4].split(':', 1)[1]
+                                else:
+                                    data = raw_line.split(
+                                        ' ', 3)[3].split(':', 1)[1]
+                            except:
+                                pass
 
                     elif line[2].startswith(':#'):  # JOIN/KICK/ETC
                         channel = line[2].split(':', 1)[1]
