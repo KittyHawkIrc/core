@@ -30,12 +30,22 @@ from twisted.words.protocols import irc
 
 import encoder  # Local module, can be overridden with mod_load
 
+##################
+#
+# Please do not use this code anywhere else unless you know EXACTLY what you're doing
+#
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
+
+#
+##################
 
 class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b14'
+VER = '1.4.0b15'
 
 if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
@@ -637,6 +647,9 @@ class Arsenic(irc.IRCClient):
             if updateconfig:  # Save file every leave call
                 save()
         irc.IRCClient.leave(self, channel)
+
+    def msg(self, user, message, length=None):  # hijacks superclass msg for unicode support
+        irc.IRCClient.msg(self, user, message.encode('UTF-8'), length=None)
 
     def cache_reopen(self):
         self.cache_fd.close()
