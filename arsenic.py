@@ -373,6 +373,9 @@ class Profile:
     def update(self, username, nickname=None, ident=None, hostname=None, lat=None, lon=None, unit=None, gender=None,
                height=None, weight=None, privacy=None, isverified=None, isop=None):
 
+        if not self.getuser_byname(username):
+            return False
+
         sql_str = 'update profile set'
         sql_user_str = 'update user set'
 
@@ -464,7 +467,7 @@ class Profile:
             sql_str += '  isop = "%s", ' % (isop)
 
         if '=' in sql_str:
-            sql_str = '%s where username = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username.username))
+            sql_str = '%s where username = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
             self.connector.execute(sql_str)
 
         if '=' in sql_user_str:
