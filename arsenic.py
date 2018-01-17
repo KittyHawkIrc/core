@@ -783,10 +783,9 @@ class Arsenic(irc.IRCClient):
         if not channel.startswith('#'):
             channel = self.nickname
 
-        msg = str(msg)
         if msg.startswith('\x01'):
             self.msg(user.split('!', 1)[0], self.ctcp(msg))
-            return
+            # return
 
         profile = self.profileManager.getuser(user)
 
