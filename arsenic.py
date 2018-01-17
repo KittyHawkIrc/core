@@ -626,8 +626,21 @@ class Arsenic(irc.IRCClient):
 
     versionName = 'KittyHawk'
     versionNum = VER
-    versionEnv = platform.system()
+    versionEnv = platform.platform()
     sourceURL = "https://github.com/KittyHawkIRC"
+
+    def ctcp(self, data):
+        data = data.strip('\x01')
+        if data.startswith('CLIENTINFO'):
+            return 'CLIENTINFO ACTION CLIENTINFO PING SOURCE TIME VERSION'
+        elif data.startswith('VERSION'):
+            return 'VERSION %s %s (%s)' % (self.versionName, self.versionNum, self.versionEnv)
+        elif data.startswith('PING'):
+            return 'PING %s' % (data)
+        elif data.startswith('SOURCE'):
+            return 'SOURCE %s' % (self.sourceURL)
+        elif data.startswith('TIME'):
+            return 'TIME %s' % (time.ctime())
 
     nickname = config_get('main', 'name')
 
@@ -769,6 +782,11 @@ class Arsenic(irc.IRCClient):
 
         if not channel.startswith('#'):
             channel = self.nickname
+
+        msg = str(msg)
+        if msg.startswith('\x01'):
+            self.msg(user.split('!', 1)[0], self.ctcp(msg))
+            return
 
         profile = self.profileManager.getuser(user)
 
