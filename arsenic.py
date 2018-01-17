@@ -632,15 +632,15 @@ class Arsenic(irc.IRCClient):
     def ctcp(self, data):
         data = data.strip('\x01')
         if data.startswith('CLIENTINFO'):
-            return 'CLIENTINFO ACTION CLIENTINFO PING SOURCE TIME VERSION'
+            return [('CLIENTINFO', 'ACTION CLIENTINFO PING SOURCE TIME VERSION')]
         elif data.startswith('VERSION'):
-            return 'VERSION %s %s (%s)' % (self.versionName, self.versionNum, self.versionEnv)
+            return [('VERSION', '%s %s (%s)' % (self.versionName, self.versionNum, self.versionEnv))]
         elif data.startswith('PING'):
-            return 'PING %s' % (data)
+            return [('PING', data)]
         elif data.startswith('SOURCE'):
-            return 'SOURCE %s' % (self.sourceURL)
+            return [('SOURCE', self.sourceURL)]
         elif data.startswith('TIME'):
-            return 'TIME %s' % (time.ctime())
+            return [('TIME', time.ctime())]
 
     nickname = config_get('main', 'name')
 
@@ -707,6 +707,7 @@ class Arsenic(irc.IRCClient):
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         self.msg('NickServ', 'identify ' + self.factory.nspassword)
+        self.startHeartbeat()
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
@@ -784,7 +785,7 @@ class Arsenic(irc.IRCClient):
             channel = self.nickname
 
         if msg.startswith('\x01'):
-            self.msg(user.split('!', 1)[0], self.ctcp(msg))
+            self.ctcpMakeReply(user.split('!', 1)[0], self.ctcp(msg))
             # return
 
         profile = self.profileManager.getuser(user)
