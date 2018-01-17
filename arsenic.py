@@ -17,6 +17,7 @@ import hashlib
 import os
 import platform
 import sqlite3
+import types
 import urllib2
 import uuid
 
@@ -36,8 +37,6 @@ import encoder  # Local module, can be overridden with mod_load
 #
 reload(sys)
 sys.setdefaultencoding("utf-8")
-
-
 #
 ##################
 
@@ -45,7 +44,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b15'
+VER = '1.4.0b16'
 
 if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
@@ -270,7 +269,8 @@ class Profile:
                     return self.getuser(self.register(usermask))
 
                 else:
-                    log.msg("Notice: %s not trustable" % (usermask))
+                    if debug:
+                        log.msg("Notice: %s not trustable" % (usermask))
                     trusted = False
                     u = tmp_u
 
@@ -963,22 +963,17 @@ class Arsenic(irc.IRCClient):
                             self.msg(u, 'Syntax error!')
 
                     elif command == 'update_patch':
+                        self.msg(u, 'Starting patch')
+                        log.msg('Starting runtime patching!')
                         mod_src = open(sys.argv[0])
                         mod_bytecode = compile(
                             mod_src.read(), '<string>', 'exec')
                         mod_src.close()
 
-                        update = imp.new_module('update')
-                        exec mod_bytecode in update.__dict__
-
-                        old = self
-                        self.__class__ = update.Arsenic
-                        self = update.Arsenic(self, irc.IRCClient)
-
-                        setattr(self, 'IRCClient', irc.IRCClient)
-                        setattr(self, 'err', self)
-
-                        self.msg(u, 'Attempted runtime patching (%s)' % VER)
+                        self.msg(u, 'Bytecode compiled, starting runtime patch')
+                        log.msg('Arsenic bytecode compiled, attempting patching')
+                        runtime_patch(mod_bytecode)
+                        self.msg(u, 'KittyHawk updated to VER %s' % VER)
 
                     elif command == 'inject':
                         self.lineReceived(msg.split(' ', 1)[1])
@@ -1405,6 +1400,20 @@ class ArsenicFactory(protocol.ClientFactory):
     def clientConnectionFailed(self, connector, reason):
         log.err("connection failed: %s" % reason)
         reactor.stop()
+
+
+def runtime_patch(bytecode):
+    global VER
+    for i, object in enumerate(bytecode.co_consts):
+        if type(object) == types.CodeType:
+            log.msg('[%s] Attempting' % (object.co_name))
+            exec ('%s.__code__ = object' % (object.co_name))
+            log.msg('[%s] Runtime patched!' % (object.co_name))
+
+    if 'RTP' in VER:
+        VER = VER.split('_RTP', 1)[0]
+    VER = '%s_RTP(%s)' % (VER, time.strftime("%Y%m%d-%H%M"))
+    log.msg('Version modifed to %s' % (VER))
 
 
 if __name__ == '__main__':
