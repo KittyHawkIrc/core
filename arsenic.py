@@ -636,11 +636,13 @@ class Arsenic(irc.IRCClient):
         elif data.startswith('VERSION'):
             return [('VERSION', '%s %s (%s)' % (self.versionName, self.versionNum, self.versionEnv))]
         elif data.startswith('PING'):
-            return [('PING', data)]
+            return [('PING', data.split(' ', 1)[1])]
         elif data.startswith('SOURCE'):
             return [('SOURCE', self.sourceURL)]
         elif data.startswith('TIME'):
             return [('TIME', time.ctime())]
+        else:
+            return [('ERRMSG', '%s :unknown query' % (data))]
 
     nickname = config_get('main', 'name')
 
@@ -707,7 +709,6 @@ class Arsenic(irc.IRCClient):
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         self.msg('NickServ', 'identify ' + self.factory.nspassword)
-        self.startHeartbeat()
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
@@ -1391,6 +1392,12 @@ class Arsenic(irc.IRCClient):
                 else:
                     channel = line[4].lower()
                     raw_user = raw_line.split(' ', 5)[5].split(':', 1)[1]
+
+            elif line[1] == '001':
+                self.hostname = line[0]
+                self._registered = True
+                self.nickname = self._attemptedNick
+                self.startHeartbeat()
 
         # else:
         except:
