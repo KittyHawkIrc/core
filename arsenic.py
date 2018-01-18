@@ -44,7 +44,7 @@ class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b16'
+VER = '1.4.0b17'
 
 if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
