@@ -646,8 +646,8 @@ class Arsenic(irc.IRCClient):
         def __config_remove__(item):
             return config_remove(mod_declare_privmsg[command], item)
 
-        setattr(self, 'config.get', __config.get__)
-        setattr(self, 'config.set', __config.set__)
+        setattr(self, 'config.get', __config_get__)
+        setattr(self, 'config.set', __config_set__)
         setattr(self, 'config_remove', __config_remove__)
 
         for command in mod_declare_syncmsg:
@@ -749,8 +749,8 @@ class Arsenic(irc.IRCClient):
                 def __config_remove__(item):
                     return config_remove(mod_declare_privmsg[command], item)
 
-                setattr(self, 'config.get', __config.get__)
-                setattr(self, 'config.set', __config.set__)
+                setattr(self, 'config.get', __config_get__)
+                setattr(self, 'config.set', __config_set__)
                 setattr(self, 'config_remove', __config_remove__)
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (
