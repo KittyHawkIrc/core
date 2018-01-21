@@ -32,19 +32,17 @@ from twisted.words.protocols import irc
 import encoder  # Local module, can be overridden with mod_load
 
 ##################
-#
 # Please do not use this code anywhere else unless you know EXACTLY what you're doing
-#
 reload(sys)
 sys.setdefaultencoding("utf-8")
-#
 ##################
+
+
+VER = '1.4.0b18'
+
 
 class conf(Exception):
     """Automatically generated"""
-
-
-VER = '1.4.0b17'
 
 if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
@@ -59,149 +57,45 @@ else:
     raise conf(
         'arsenic takes a single argument, --config=/path/to/config/dir')
 
-cfile = open(os.path.join(config_dir, 'kgb.conf'), 'r+b')
-config = ConfigParser.ConfigParser()
-config.readfp(cfile)
 
+class configManager(ConfigParser.ConfigParser):
+    def __init__(self, fd):
+        ConfigParser.ConfigParser.__init__(self)
+        self.readfp(fd)
+        self.fd = fd
 
-def config_save():
-    cfile.seek(0)  # This mess is required
-    cfile.truncate()  # otherwise we get in to this weird
-    cfile.flush()  # situation where we have 2
-    config.write(cfile)  # configs in one file
-    cfile.flush()
+    def save(self):
+        self.fd.seek(0)  # This mess is required
+        self.fd.truncate()  # otherwise we get in to this weird
+        self.fd.flush()  # situation where we have 2
+        self.write(self.fd)  # configs in one file
+        self.fd.flush()
 
+    def get(self, module, item, default=False):
+        if self.has_option(module, item):
+            return ConfigParser.ConfigParser.get(self, module, item)
+        else:
+            return default
 
-def config_get(module, item, default=False):
-    if config.has_option(module, item):
-        return config.get(module, item)
-    else:
-        return default
+    def set(self, module, item, value):
+        if not self.has_section(module):
+            self.add_section(module)
 
-
-def config_set(module, item, value):
-    if not config.has_section(module):
-        config.add_section(module)
-
-    config.set(module, item, value)
-    config_save()
-    return True
-
-
-def config_remove(module, item):
-    if config.has_section(module) and config.has_option(module, item):
-        config.remove_option(module, item)
-        config_save()
+        ConfigParser.ConfigParser.set(self, module, item, value)
+        self.save()
         return True
 
-    else:
-        return False
+    def remove(self, module, item):
+        if self.has_section(module) and self.has_option(module, item):
+            self.remove_option(module, item)
+            self.save()
+            return True
+
+        else:
+            return False
 
 
-# relays messages without a log
-
-debug = config.getboolean('main', 'debug')
-
-if debug:
-    file_log = 'stdout'
-    log.startLogging(sys.stdout)
-else:
-    log_path = os.path.join(config_dir, 'logs')
-    if not os.path.exists(log_path):
-        os.makedirs(log_path)
-        log.msg("Notice: Created a log directory")
-
-    file_log = log_path + '/' + time.strftime("%Y_%m_%d-%H_%M_%S") + '.log'
-    log.startLogging(open(file_log, 'w'))
-
-log.msg("KittyHawk %s, log: %s" % (VER, file_log))
-
-
-hostname = config_get('network', 'hostname')
-if not hostname:
-    log.err("Unable to read hostname")
-    raise SystemExit(1)
-
-port = config.getint('network', 'port')
-if not port:
-    log.err("Unable to read port")
-    raise SystemExit(2)
-
-oplist = config_get('main', 'op')
-if oplist:
-    oplist = oplist.replace(' ', '').split(',')
-    for user in oplist:
-        if user.startswith('!'):
-            oplist.remove(user)
-            oplist.add(encoder.decode(user))
-
-else:
-    log.err('Unable to read ops, assuming none')
-    oplist = []
-
-ownerlist = oplist
-modlook = {}
-
-modules = config_get('main', 'mod').replace(' ', '').split(',')
-
-if not modules:
-    log.err('Unable to read modules, assuming none')
-    modules = []
-
-updateconfig = config.getboolean('main', 'updateconfig')
-
-if not updateconfig:
-    cfile.close()  # Close this if we don't need it later
-
-salt = config_get('main', 'salt')
-
-if not salt:
-    salt = uuid.uuid4().hex
-    config_set('main', 'salt', salt)
-    log.msg("Notice: a new salt was generated")
-
-mod_declare_privmsg = {}
-mod_declare_userjoin = {}
-mod_declare_syncmsg = {}
-
-sync_channels = {}
-
-__sync_channel__ = config_get('main', 'sync_channel')
-
-if __sync_channel__:
-    for lists in __sync_channel__.split(','):
-        items = lists.split('>')
-        sync_channels[items[0]] = items[1]
-
-key = config_get('main', 'command_key', '^')
-
-isconnected = False
-
-irc_relay = config_get('main', 'log', '')
-
-if irc_relay == '':
-    log.msg("no relay log channel")
-
-db_name = os.path.join(config_dir, config_get('main', 'db'))
-
-if not db_name:
-    db_name = ""
-
-cache_name = config_get('main', 'cache', '.cache')
-
-cache_name = os.path.join(config_dir, cache_name)
-
-cache_state = 1
-
-if debug:
-    log.msg("Using cache: " + cache_name)
-
-cache_fd = anydbm.open(cache_name, 'c')
-
-
-if os.path.isfile(db_name) is False:
-    log.err("No database found!")
-    raise SystemExit(3)
+config = configManager(open(os.path.join(config_dir, 'kgb.conf'), 'r+b'))
 
 class Profile:
     def __init__(self, connector):
@@ -617,7 +511,6 @@ class Arsenic(irc.IRCClient):
         def __init__(self):
             pass
 
-
     save = persist()
 
     lockerbox = {}
@@ -646,7 +539,7 @@ class Arsenic(irc.IRCClient):
         else:
             return [('ERRMSG', '%s :unknown query' % (data))]
 
-    nickname = config_get('main', 'name')
+    nickname = config.get('main', 'name')
 
     # Joins channels on invite
     autoinvite = config.getboolean('main', 'autoinvite')
@@ -717,7 +610,7 @@ class Arsenic(irc.IRCClient):
 
     # callbacks for events
     def signedOn(self):
-        nickname = config_get('main', 'nickname')
+        nickname = config.get('main', 'nickname')
         if nickname:
             self.nickname = nickname
             self.setNick(nickname)
@@ -745,16 +638,16 @@ class Arsenic(irc.IRCClient):
         ##### Hijack config object functions to reduce scope
 
         def __config_get__(item, default=False):  # stubs, basically
-            return config_get(mod_declare_privmsg[command], item, default)
+            return config.get(mod_declare_privmsg[command], item, default)
 
         def __config_set__(item, value):
-            return config_set(mod_declare_privmsg[command], item, value)
+            return config.set(mod_declare_privmsg[command], item, value)
 
         def __config_remove__(item):
             return config_remove(mod_declare_privmsg[command], item)
 
-        setattr(self, 'config_get', __config_get__)
-        setattr(self, 'config_set', __config_set__)
+        setattr(self, 'config.get', __config.get__)
+        setattr(self, 'config.set', __config.set__)
         setattr(self, 'config_remove', __config_remove__)
 
         for command in mod_declare_syncmsg:
@@ -848,16 +741,16 @@ class Arsenic(irc.IRCClient):
                 ##### Hijack config object functions to reduce scope
 
                 def __config_get__(item, default=False):  # stubs, basically
-                    return config_get(mod_declare_privmsg[command], item, default)
+                    return config.get(mod_declare_privmsg[command], item, default)
 
                 def __config_set__(item, value):
-                    return config_set(mod_declare_privmsg[command], item, value)
+                    return config.set(mod_declare_privmsg[command], item, value)
 
                 def __config_remove__(item):
                     return config_remove(mod_declare_privmsg[command], item)
 
-                setattr(self, 'config_get', __config_get__)
-                setattr(self, 'config_set', __config_set__)
+                setattr(self, 'config.get', __config.get__)
+                setattr(self, 'config.set', __config.set__)
                 setattr(self, 'config_remove', __config_remove__)
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (
@@ -1004,13 +897,13 @@ class Arsenic(irc.IRCClient):
                     elif command == 'raw':
                         self.sendLine(msg.split(' ', 1)[1])
 
-                    elif command == 'config_get':
+                    elif command == 'config.get':
                         opts = msg.split()
                         module = opts[1]
                         item = opts[2]
-                        self.msg(u, str(config_get(module, item, False)))
+                        self.msg(u, str(config.get(module, item, False)))
 
-                    elif command == 'config_set':
+                    elif command == 'config.set':
                         opts = msg.split()
                         module = opts[1]
                         item = opts[2]
@@ -1020,7 +913,7 @@ class Arsenic(irc.IRCClient):
                         for i in value_list:
                             value += i + ' '
 
-                        self.msg(u, str(config_set(module, item, value[:len(value) - 1])))
+                        self.msg(u, str(config.set(module, item, value[:len(value) - 1])))
 
                     elif command == 'config_remove':
                         opts = msg.split()
@@ -1074,8 +967,8 @@ class Arsenic(irc.IRCClient):
                     elif command == 'help_config':
                         self.msg(u, 'KittyHawk Ver: %s' % VER)
                         self.msg(u, 'Config commands: (note: owner only)')
-                        self.msg(u, 'config_set {module} {item} {value} (Sets a value for a module)')
-                        self.msg(u, 'config_get {module} {item} (Returns a value)')
+                        self.msg(u, 'config.set {module} {item} {value} (Sets a value for a module)')
+                        self.msg(u, 'config.get {module} {item} (Returns a value)')
                         self.msg(u, 'config_remove {module} {item} (Removes a value)')
                         self.msg(u, 'config_list {module} (Lists all items for a module)')
 
@@ -1447,6 +1340,107 @@ def runtime_patch(bytecode):
 
 if __name__ == '__main__':
 
+    debug = config.getboolean('main', 'debug')
+
+    if debug:
+        file_log = 'stdout'
+        log.startLogging(sys.stdout)
+    else:
+        log_path = os.path.join(config_dir, 'logs')
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+            log.msg("Notice: Created a log directory")
+
+        file_log = log_path + '/' + time.strftime("%Y_%m_%d-%H_%M_%S") + '.log'
+        log.startLogging(open(file_log, 'w'))
+
+    log.msg("KittyHawk %s, log: %s" % (VER, file_log))
+
+    hostname = config.get('network', 'hostname')
+    if not hostname:
+        log.err("Unable to read hostname")
+        raise SystemExit(1)
+
+    port = config.getint('network', 'port')
+    if not port:
+        log.err("Unable to read port")
+        raise SystemExit(2)
+
+    oplist = config.get('main', 'op')
+    if oplist:
+        oplist = oplist.replace(' ', '').split(',')
+        for user in oplist:
+            if user.startswith('!'):
+                oplist.remove(user)
+                oplist.add(encoder.decode(user))
+
+    else:
+        log.err('Unable to read ops, assuming none')
+        oplist = []
+
+    ownerlist = oplist
+    modlook = {}
+
+    modules = config.get('main', 'mod').replace(' ', '').split(',')
+
+    if not modules:
+        log.err('Unable to read modules, assuming none')
+        modules = []
+
+    updateconfig = config.getboolean('main', 'updateconfig')
+
+    if not updateconfig:
+        cfile.close()  # Close this if we don't need it later
+
+    salt = config.get('main', 'salt')
+
+    if not salt:
+        salt = uuid.uuid4().hex
+        config.set('main', 'salt', salt)
+        log.msg("Notice: a new salt was generated")
+
+    mod_declare_privmsg = {}
+    mod_declare_userjoin = {}
+    mod_declare_syncmsg = {}
+
+    sync_channels = {}
+
+    __sync_channel__ = config.get('main', 'sync_channel')
+
+    if __sync_channel__:
+        for lists in __sync_channel__.split(','):
+            items = lists.split('>')
+            sync_channels[items[0]] = items[1]
+
+    key = config.get('main', 'command_key', '^')
+
+    isconnected = False
+
+    irc_relay = config.get('main', 'log', '')
+
+    if irc_relay == '':
+        log.msg("no relay log channel")
+
+    db_name = os.path.join(config_dir, config.get('main', 'db'))
+
+    if not db_name:
+        db_name = ""
+
+    cache_name = config.get('main', 'cache', '.cache')
+
+    cache_name = os.path.join(config_dir, cache_name)
+
+    cache_state = 1
+
+    if debug:
+        log.msg("Using cache: " + cache_name)
+
+    cache_fd = anydbm.open(cache_name, 'c')
+
+    if os.path.isfile(db_name) is False:
+        log.err("No database found!")
+        raise SystemExit(3)
+
     conn = sqlite3.connect(db_name)
 
     for mod in modules:
@@ -1473,11 +1467,11 @@ if __name__ == '__main__':
                 mod_declare_syncmsg[i] = mod
 
     try:
-        channel_list = config_get(
+        channel_list = config.get(
             'main', 'channel').replace(' ', '').split(',')
 
-        f = ArsenicFactory(conn, channel_list[0], config_get('main', 'name'),
-                           config_get('main', 'password'))
+        f = ArsenicFactory(conn, channel_list[0], config.get('main', 'name'),
+                           config.get('main', 'password'))
     except IndexError:
         raise SystemExit(4)
 
