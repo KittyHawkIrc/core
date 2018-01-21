@@ -14,17 +14,17 @@ This is WIP code under active development.
 import ConfigParser
 import anydbm
 import hashlib
+import imp
 import os
 import platform
 import sqlite3
+import sys
+import time
 import types
 import urllib2
 import uuid
 
 import dill as pickle
-import imp
-import sys
-import time
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
@@ -641,6 +641,8 @@ class Arsenic(irc.IRCClient):
             return [('SOURCE', self.sourceURL)]
         elif data.startswith('TIME'):
             return [('TIME', time.ctime())]
+        elif data.startswith('ACTION'):
+            return None
         else:
             return [('ERRMSG', '%s :unknown query' % (data))]
 
@@ -785,9 +787,11 @@ class Arsenic(irc.IRCClient):
         if not channel.startswith('#'):
             channel = self.nickname
 
-        if msg.startswith('\x01'):
-            self.ctcpMakeReply(user.split('!', 1)[0], self.ctcp(msg))
-            # return
+        if msg.startswith('\x01') and msg.endswith('\x01'):
+            reply = self.ctcp(msg)
+            if reply:
+                self.ctcpMakeReply(user.split('!', 1)[0], reply)
+                return
 
         profile = self.profileManager.getuser(user)
 
