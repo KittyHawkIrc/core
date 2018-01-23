@@ -572,12 +572,12 @@ class Arsenic(irc.IRCClient):
 
         self.cache_reopen()
 
-    def cache_save(self, item):  # save 1 item to reduce overhead
+    def __cache_save__(self, item):  # save 1 item to reduce overhead
 
         self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
-
         self.cache_reopen()
 
+        return True
 
     def cache_load(self):
         # In theory, this should work
@@ -588,8 +588,6 @@ class Arsenic(irc.IRCClient):
                 self.lockerbox[item] = pickle.loads(self.cache_fd[item])
             except:
                 log.msg("Error loading cache: " + item)
-
-
 
     def cache_status(self):
         if cache_state == 1:
@@ -752,6 +750,11 @@ class Arsenic(irc.IRCClient):
                 setattr(self, 'config_get', __config_get__)
                 setattr(self, 'config_set', __config_set__)
                 setattr(self, 'config_remove', __config_remove__)
+
+                def __nest_cache_save__(self):  # Nested cache save, yolo?
+                    return self.__cache_save__(mod_declare_privmsg[command])
+
+                setattr(self, 'cache_save', __nest_cache_save__)
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (
                 command, user, channel, msg)
@@ -1140,7 +1143,7 @@ class Arsenic(irc.IRCClient):
                         mod_declare_privmsg[
                             command]].callback(
                         self)
-                    self.cache_save(mod_declare_privmsg[command])  # Save the cache only when a module is called
+                    self.__cache_save__(mod_declare_privmsg[command])  # Save the cache only when a module is called
 
                 elif msg.startswith(key + 'help'):
 
