@@ -446,7 +446,7 @@ def save():
         pass
 
     config.set('main', 'channel', clist)
-    config_save()
+    config.config_save()
 
 
 def checkauth(user):
@@ -662,7 +662,7 @@ class Arsenic(irc.IRCClient):
     def userJoined(self, cbuser, cbchannel):
         setattr(self, 'type', 'userjoin')
         if cbuser != self.nickname:
-            setattr(self, 'user', self.profileManager.getuser_bynick(cbuser))
+            setattr(self, 'profile', self.profileManager.getuser_bynick(cbuser))
         setattr(self, 'channel', cbchannel)
         setattr(self, 'ver', VER)
 
