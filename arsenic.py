@@ -104,7 +104,9 @@ class Profile:
         self.connector = connector
 
     def __SafeSQL__(self, string):  # Practice safe SQL, wear a sanitizer
-        return ''.join(e for e in string if e.isalnum() or e == '@' or e == '!' or e == '.')
+        return ''.join(e for e in string if
+                       e.isalnum() or e == '@' or e == '!' or e == '.' or e == '_' or e == '-' or e == '[' or e == ']' \
+                       or e == '\\' or e == ' ^ ' or e == '`' or e == '{' or e == '}')
 
     def register(self, usermask):
 
