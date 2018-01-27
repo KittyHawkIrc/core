@@ -446,7 +446,7 @@ def save():
         pass
 
     config.set('main', 'channel', clist)
-    config.config_save()
+    config.save()
 
 
 def checkauth(user):
