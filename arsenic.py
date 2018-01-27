@@ -38,7 +38,7 @@ sys.setdefaultencoding("utf-8")
 ##################
 
 
-VER = '1.4.0rc1'
+VER = '1.4.0rc2'
 
 
 class conf(Exception):
