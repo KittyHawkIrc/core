@@ -38,7 +38,7 @@ sys.setdefaultencoding("utf-8")
 ##################
 
 
-VER = '1.4.0rc2'
+VER = '1.5.0dev'
 
 
 class conf(Exception):
@@ -673,6 +673,36 @@ class Arsenic(irc.IRCClient):
                 mod_declare_userjoin[command]].callback(
                 self)
 
+    def search(self, query):
+        q = ''.join(('%', query, '%')).replace(' ', '%').decode('utf-8')
+
+        c = conn.execute(
+                "SELECT name, response, (CASE WHEN name LIKE ? THEN 0 ELSE 1 END) keyfirst \
+                FROM command \
+                WHERE name LIKE ? OR response LIKE ? \
+                ORDER BY keyfirst, CASE WHEN name LIKE ? AND response LIKE ? THEN 0 ELSE 1 END, name", (q, q, q, q, q,))
+
+        queryList = c.fetchmany(20)  # list of tuples
+        prettyList = {}  # A dict, as nature intended
+
+        cut = 750 / (len(queryList) + 1)  # Try to sanely adjust output size based on query
+
+        if queryList == []:
+            return 'Error, 0 results found'
+
+        for tup in queryList:
+            prettyList[tup[0]] = tup[1][:cut] + (tup[1][cut:] and '..')
+
+        output = ''
+
+        for i in prettyList:
+            output = key + '%s: %s  |  %s' % (i, prettyList[i], output)
+
+        output = output[:len(output) - 5]
+
+        return output
+
+
     def privmsg(self, user, channel, msg):
 
         if not channel.startswith('#'):
@@ -1145,12 +1175,20 @@ class Arsenic(irc.IRCClient):
                         self)
                     self.__cache_save__(mod_declare_privmsg[command])  # Save the cache only when a module is called
 
-                elif msg.startswith(key + 'help'):
+                elif command == 'help':
 
                     self.msg(
                         u, 'Howdy, %s, please visit https://commands.tox.im to view the commands.' % u)
                     self.msg(u,
                              'You can also manage your profile with set_password {pw}, change_password {old pw} {new pw}, or link a new name to a profile with link {username} {pw}')
+
+                elif command == 'search' or 's':
+                    query = msg.split(' ', 1)
+
+                    if len(query) >= 2:
+                        self.msg(channel, '%s: %s' % (u, self.search(query[1])))
+                    else:
+                        self.msg(channel, '%s: Please enter a search query' % (u))
 
                 else:
                     c = conn.execute(
