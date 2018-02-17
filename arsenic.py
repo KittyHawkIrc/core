@@ -854,7 +854,9 @@ class Arsenic(irc.IRCClient):
 
                         mod_src = open(config_dir + '/modules/' + mod + '.py')
                         mod_bytecode = compile(
-                                mod_src.read(), '<string>', 'exec')
+                                mod_src.read().replace(u"\u2018", "").replace(u"\u2019", "").replace(u"\u201c",
+                                                                                                     "").replace(
+                                    u"\u201d", ""), '<string>', 'exec')
                         mod_src.close()
 
                         modlook[mod] = imp.new_module(mod)
@@ -1485,7 +1487,9 @@ if __name__ == '__main__':
 
     for mod in modules:
         mod_src = open(config_dir + '/modules/' + mod + '.py')
-        mod_bytecode = compile(mod_src.read(), '<string>', 'exec')
+        mod_bytecode = compile(
+            mod_src.read().replace(u"\u2018", "").replace(u"\u2019", "").replace(u"\u201c", "").replace(u"\u201d", ""),
+            '<string>', 'exec')
         mod_src.close()
 
         modlook[mod] = imp.new_module(mod)
