@@ -12,16 +12,20 @@ This is WIP code under active development.
 
 """
 try:
-    import configparser
+    import ConfigParser
 except:
-    import ConfigParser as configparser  # Py2 support
+    import configparser as ConfigParser  # Py2 support
 
-import dbm
 import hashlib
 import imp
 import os
 import platform
 import sqlite3
+import sys
+import time
+import types
+
+import dbm
 
 try:
     import urllib.error
@@ -32,22 +36,20 @@ except:
 import uuid
 
 import dill as pickle
-import sys
-import time
 from twisted.internet import protocol, reactor, ssl
 from twisted.python import log
 from twisted.words.protocols import irc
 
 import encoder  # Local module, can be overridden with mod_load
 
+VER = '1.4.0_a2_py3'
+
 
 class conf(Exception):
     """Automatically generated"""
 
 
-VER = '1.4.0b11_a1_pypy3'
-
-try:
+if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
         config_dir = sys.argv[1].split('=', 1)[1]
         if config_dir == '':
@@ -55,145 +57,50 @@ try:
         else:
             if not os.path.isdir(config_dir):
                 raise conf('config path not found')
-except:
+else:
+    raise SystemExit(1)
     raise conf(
-        'arsenic takes a single argument, --config=/path/to/config/dir')
-
-cfile = os.path.join(config_dir, 'kgb.conf')
-config = configparser.ConfigParser()
-config.read(cfile)
+            'arsenic takes a single argument, --config=/path/to/config/dir')
 
 
-def config_save():
-    cfile.seek(0)  # This mess is required
-    cfile.truncate()  # otherwise we get in to this weird
-    cfile.flush()  # situation where we have 2
-    config.write(cfile)  # configs in one file
-    cfile.flush()
+class configManager(ConfigParser.ConfigParser):
+    def __init__(self, fd):
+        ConfigParser.ConfigParser.__init__(self)
+        self.read(fd)
+        self.fd = fd
 
-def config_get(module, item, default=False):
-    if config.has_option(module, item):
-        return config.get(module, item)
-    else:
-        return default
+    def save(self):
+        self.fd.seek(0)  # This mess is required
+        self.fd.truncate()  # otherwise we get in to this weird
+        self.fd.flush()  # situation where we have 2
+        self.write(self.fd)  # configs in one file
+        self.fd.flush()
 
+    def get(self, module, item, default=False):
+        if self.has_option(module, item):
+            return ConfigParser.ConfigParser.get(self, module, item)
+        else:
+            return default
 
-def config_set(module, item, value):
-    if not config.has_section(module):
-        config.add_section(module)
+    def set(self, module, item, value):
+        if not self.has_section(module):
+            self.add_section(module)
 
-    config.set(module, item, value)
-    config_save()
-    return True
-
-
-def config_remove(module, item):
-    if config.has_section(module) and config.has_option(module, item):
-        config.remove_option(module, item)
-        config_save()
+        ConfigParser.ConfigParser.set(self, module, item, value)
+        self.save()
         return True
 
-    else:
-        return False
+    def remove(self, module, item):
+        if self.has_section(module) and self.has_option(module, item):
+            self.remove_option(module, item)
+            self.save()
+            return True
+
+        else:
+            return False
 
 
-hostname = config.get('network', 'hostname')
-if not hostname:
-    raise conf('Unable to read hostname')
-
-port = config.getint('network', 'port')
-if not port:
-    raise conf('Unable to read port')
-
-oplist = config_get('main', 'op')
-if oplist:
-    oplist = oplist.replace(' ', '').split(',')
-    for user in oplist:
-        if user.startswith('!'):
-            oplist.remove(user)
-            oplist.add(encoder.decode(user))
-
-else:
-    print('Unable to read ops, assuming none')
-    oplist = []
-
-ownerlist = oplist
-
-modlook = {}
-
-modules = config_get('main', 'mod').replace(' ', '').split(',')
-
-if not modules:
-    print('Unable to read modules, assuming none')
-    modules = []
-
-# relays messages without a log
-
-debug = config.getboolean('main', 'debug')
-
-updateconfig = config.getboolean('main', 'updateconfig')
-
-if not updateconfig:
-    cfile.close()  # Close this if we don't need it later
-
-if debug:
-    file_log = 'stdout'
-    log.startLogging(sys.stdout)
-else:
-    file_log = 'kgb-' + time.strftime("%Y_%m_%d-%H%M%S") + '.log'
-    log.startLogging(open(file_log, 'w'))
-
-log.msg("KittyHawk %s, log: %s" % (VER, file_log))
-
-salt = config_get('main', 'salt')
-
-if not salt:
-    salt = uuid.uuid4().hex
-    config_set('main', 'salt', salt)
-    print("Notice: a new salt was generated")
-
-mod_declare_privmsg = {}
-mod_declare_userjoin = {}
-mod_declare_syncmsg = {}
-
-channel_user = {}
-
-sync_channels = {}
-
-__sync_channel__ = config_get('main', 'sync_channel')
-
-if __sync_channel__:
-    for lists in __sync_channel__.split(','):
-        items = lists.split('>')
-        sync_channels[items[0]] = items[1]
-
-key = config_get('main', 'command_key', '^')
-
-isconnected = False
-
-irc_relay = config_get('main', 'log', '')
-
-if irc_relay == '':
-    log.msg("no relay log channel")
-
-db_name = os.path.join(config_dir, config_get('main', 'db'))
-
-if not db_name:
-    db_name = ""
-
-cache_name = config_get('main', 'cache', '.cache')
-
-cache_name = os.path.join(config_dir, cache_name)
-
-cache_state = 1
-
-print("Using cache: " + cache_name)
-cache_fd = dbm.open(cache_name, 'c')
-
-
-if os.path.isfile(db_name) is False:
-    log.err("No database found!")
-    raise SystemExit(0)
+config = configManager(os.path.join(config_dir, 'kgb.conf'))
 
 
 class Profile:
@@ -201,7 +108,9 @@ class Profile:
         self.connector = connector
 
     def __SafeSQL__(self, string):  # Practice safe SQL, wear a sanitizer
-        return ''.join(e for e in string if e.isalnum() or e == '@' or e == '!' or e == '.')
+        return ''.join(e for e in string if
+                       e.isalnum() or e == '@' or e == '!' or e == '.' or e == '_' or e == '-' or e == '[' or e == ']' \
+                       or e == '\\' or e == ' ^ ' or e == '`' or e == '{' or e == '}')
 
     def register(self, usermask):
 
@@ -214,9 +123,9 @@ class Profile:
             return
 
         try:
-            self.connector.execute('insert into profile(username) values (?)',
+            self.connector.execute('INSERT INTO profile(username) VALUES (?)',
                                    (nick,))
-            self.connector.execute('insert into users(username, nickname, ident, hostmask) values (?, ?, ?, ?)',
+            self.connector.execute('INSERT INTO users(username, nickname, ident, hostmask) VALUES (?, ?, ?, ?)',
                                    (nick, nick, ident, hostmask,))
             self.connector.commit()
 
@@ -225,7 +134,6 @@ class Profile:
             return usermask
         except:
             return False
-
 
     def getuser(self, usermask):
 
@@ -239,22 +147,22 @@ class Profile:
         trusted = True
 
         c = self.connector.execute(
-            'SELECT * FROM profile WHERE profile.username = (SELECT username FROM users WHERE hostmask = ?)',
-            (hostmask,))
+                'SELECT * FROM profile WHERE profile.username = (SELECT username FROM users WHERE hostmask = ?)',
+                (hostmask,))
 
         tmp_u = c.fetchone()
 
         if tmp_u is None:
             c = self.connector.execute(
-                'SELECT * FROM profile WHERE profile.username = (SELECT username from users where nickname = ? and ident = ?)',
-                (nick, ident,))
+                    'SELECT * FROM profile WHERE profile.username = (SELECT username FROM users WHERE nickname = ? AND ident = ?)',
+                    (nick, ident,))
 
             tmp_u = c.fetchone()
             if tmp_u is None:
 
                 c = self.connector.execute(
-                    'SELECT * FROM profile WHERE profile.username = (select username from users where nickname = ? or ident = ?)',
-                    (nick, ident,))
+                        'SELECT * FROM profile WHERE profile.username = (SELECT username FROM users WHERE nickname = ? OR ident = ?)',
+                        (nick, ident,))
 
                 tmp_u = c.fetchone()
 
@@ -262,13 +170,14 @@ class Profile:
                     return self.getuser(self.register(usermask))
 
                 else:
-                    log.msg("Notice: %s not trustable" % (usermask))
+                    if debug:
+                        log.msg("Notice: %s not trustable" % (usermask))
                     trusted = False
                     u = tmp_u
 
             else:
                 log.msg("Updating hostmask for " + nick)
-                self.connector.execute('update users set hostmask = ? where nickname = ?', (hostmask, nick,))
+                self.connector.execute('UPDATE users SET hostmask = ? WHERE nickname = ?', (hostmask, nick,))
                 self.connector.commit()
                 return self.getuser(usermask)
 
@@ -276,14 +185,13 @@ class Profile:
         else:
             u = tmp_u  # Turn temp in to actual user info
 
-
         username = u[0]
 
         old_nick_conn = self.connector.execute('SELECT * FROM users WHERE username = ?', (username,))
         old_nick = old_nick_conn.fetchone()[1]
 
         if nick != old_nick:
-            self.connector.execute('update users set nickname = ? where username = ?', (nick, username,))
+            self.connector.execute('UPDATE users SET nickname = ? WHERE username = ?', (nick, username,))
             self.connector.commit()
 
         loc_lat = u[1]
@@ -352,7 +260,7 @@ class Profile:
 
     def getuser_byname(self, username):  # Caution, user not authenticated
 
-        c = self.connector.execute('select * from users where username = ?', (username,))
+        c = self.connector.execute('SELECT * FROM users WHERE username = ?', (username,))
         u = c.fetchone()
 
         if u:
@@ -374,6 +282,9 @@ class Profile:
 
     def update(self, username, nickname=None, ident=None, hostname=None, lat=None, lon=None, unit=None, gender=None,
                height=None, weight=None, privacy=None, isverified=None, isop=None):
+
+        if not self.getuser_byname(username):
+            return False
 
         sql_str = 'update profile set'
         sql_user_str = 'update user set'
@@ -466,12 +377,12 @@ class Profile:
             sql_str += '  isop = "%s", ' % (isop)
 
         if '=' in sql_str:
-            sql_str = '%s where nickname = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
+            sql_str = '%s where username = "%s";' % (sql_str[0:len(sql_str) - 2], self.__SafeSQL__(username))
             self.connector.execute(sql_str)
 
         if '=' in sql_user_str:
-            sql_user_str = '%s where nickname = "%s";' % (
-            sql_user_str[0:len(sql_user_str) - 2], self.__SafeSQL__(username))
+            sql_user_str = '%s where username = "%s";' % (
+                sql_user_str[0:len(sql_user_str) - 2], self.__SafeSQL__(username))
             self.connector.execute(sql_user_str)
 
         try:
@@ -517,7 +428,6 @@ class Profile:
             return False
 
 
-
 def save():
     clist = ''
     slist = ''
@@ -535,14 +445,13 @@ def save():
         if slist[0] != '#':
             slist = slist[1:]
 
-        print(slist)
         config.set('main', 'sync_channel', slist)
 
     except:
         pass
 
     config.set('main', 'channel', clist)
-    config_save()
+    config.config_save()
 
 
 def checkauth(user):
@@ -552,7 +461,7 @@ def checkauth(user):
 
     try:  # needed for non message op commands
         c = conn.execute(
-            'SELECT * FROM op WHERE username = ?', (user_host,))
+                'SELECT * FROM op WHERE username = ?', (user_host,))
     except:
         c = None
 
@@ -607,7 +516,6 @@ class Arsenic(irc.IRCClient):
         def __init__(self):
             pass
 
-
     save = persist()
 
     lockerbox = {}
@@ -616,10 +524,27 @@ class Arsenic(irc.IRCClient):
 
     versionName = 'KittyHawk'
     versionNum = VER
-    versionEnv = platform.system()
+    versionEnv = platform.platform()
     sourceURL = "https://github.com/KittyHawkIRC"
 
-    nickname = config_get('main', 'name')
+    def ctcp(self, data):
+        data = data.strip('\x01')
+        if data.startswith('CLIENTINFO'):
+            return [('CLIENTINFO', 'ACTION CLIENTINFO PING SOURCE TIME VERSION')]
+        elif data.startswith('VERSION'):
+            return [('VERSION', '%s %s (%s)' % (self.versionName, self.versionNum, self.versionEnv))]
+        elif data.startswith('PING'):
+            return [('PING', data.split(' ', 1)[1])]
+        elif data.startswith('SOURCE'):
+            return [('SOURCE', self.sourceURL)]
+        elif data.startswith('TIME'):
+            return [('TIME', time.ctime())]
+        elif data.startswith('ACTION'):
+            return None
+        else:
+            return [('ERRMSG', '%s :unknown query' % (data))]
+
+    nickname = config.get('main', 'name')
 
     # Joins channels on invite
     autoinvite = config.getboolean('main', 'autoinvite')
@@ -638,6 +563,9 @@ class Arsenic(irc.IRCClient):
                 save()
         irc.IRCClient.leave(self, channel)
 
+    def msg(self, user, message, length=None):  # hijacks superclass msg for unicode support
+        irc.IRCClient.msg(self, user, message.encode('UTF-8'), length=None)
+
     def cache_reopen(self):
         self.cache_fd.close()
         self.cache_fd = dbm.open(cache_name, 'c')
@@ -649,25 +577,22 @@ class Arsenic(irc.IRCClient):
 
         self.cache_reopen()
 
-    def cache_save(self, item):  # save 1 item to reduce overhead
+    def __cache_save__(self, item):  # save 1 item to reduce overhead
 
         self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
-
         self.cache_reopen()
 
+        return True
 
     def cache_load(self):
         # In theory, this should work
 
-        for item in list(cache_fd.keys()):
-            item = item.decode('UTF-8')
+        for item in cache_fd.keys():
 
             try:
                 self.lockerbox[item] = pickle.loads(self.cache_fd[item])
             except:
                 log.msg("Error loading cache: " + item)
-
-
 
     def cache_status(self):
         if cache_state == 1:
@@ -688,13 +613,12 @@ class Arsenic(irc.IRCClient):
 
     # callbacks for events
     def signedOn(self):
-        nickname = config_get('main', 'nickname')
+        nickname = config.get('main', 'nickname')
         if nickname:
             self.nickname = nickname
             self.setNick(nickname)
 
         for i in channel_list:
-            channel_user[i.lower()] = [self.nickname]
             self.join(i)
 
         self.cache_load()  # load cached lockerbox
@@ -713,14 +637,13 @@ class Arsenic(irc.IRCClient):
         setattr(self, 'ver', VER)
         setattr(self, 'store', save)
 
-
         ##### Hijack config object functions to reduce scope
 
         def __config_get__(item, default=False):  # stubs, basically
-            return config_get(mod_declare_privmsg[command], item, default)
+            return config.get(mod_declare_privmsg[command], item, default)
 
         def __config_set__(item, value):
-            return config_set(mod_declare_privmsg[command], item, value)
+            return config.set(mod_declare_privmsg[command], item, value)
 
         def __config_remove__(item):
             return config_remove(mod_declare_privmsg[command], item)
@@ -738,12 +661,12 @@ class Arsenic(irc.IRCClient):
 
             modlook[
                 mod_declare_syncmsg[command]].callback(
-                self)
+                    self)
 
     def userJoined(self, cbuser, cbchannel):
         setattr(self, 'type', 'userjoin')
         if cbuser != self.nickname:
-            setattr(self, 'user', self.profileManager.getuser(cbuser))
+            setattr(self, 'profile', self.profileManager.getuser_bynick(cbuser))
         setattr(self, 'channel', cbchannel)
         setattr(self, 'ver', VER)
 
@@ -752,13 +675,18 @@ class Arsenic(irc.IRCClient):
         for command in mod_declare_userjoin:
             modlook[
                 mod_declare_userjoin[command]].callback(
-                self)
+                    self)
 
     def privmsg(self, user, channel, msg):
 
         if not channel.startswith('#'):
             channel = self.nickname
 
+        if msg.startswith('\x01') and msg.endswith('\x01'):
+            reply = self.ctcp(msg)
+            if reply:
+                self.ctcpMakeReply(user.split('!', 1)[0], reply)
+                return
 
         profile = self.profileManager.getuser(user)
 
@@ -777,7 +705,6 @@ class Arsenic(irc.IRCClient):
                 self.syncmsg(user, lower_channel,
                              sync_channels[lower_channel], msg)
 
-
         iskey = False
 
         if command.startswith(key):
@@ -787,17 +714,17 @@ class Arsenic(irc.IRCClient):
             command = command
 
         if iskey or (channel == self.nickname and (
-                    auth or command == 'set_password' or command == 'change_password' or command == 'link')):
+                auth or command == 'set_password' or command == 'change_password' or command == 'link')):
 
             setattr(self, 'isop', auth)
             setattr(self, 'isowner', owner)
             setattr(self, 'type', 'privmsg')
             setattr(self, 'command', command)
             setattr(self, 'message', msg)
-            setattr(self, 'user', user)  #This will change to a profile object soon!
+            setattr(self, 'user', user)  # This will change to a profile object soon!
             setattr(self, 'channel', channel)
             setattr(self, 'ver', VER)
-            setattr(self, 'profile', profile)  #Provide profile support to modules (temporary!)
+            setattr(self, 'profile', profile)  # Provide profile support to modules (temporary!)
 
             if command in mod_declare_privmsg:
                 try:
@@ -805,7 +732,6 @@ class Arsenic(irc.IRCClient):
                 except:
                     self.lockerbox[mod_declare_privmsg[
                         command]] = self.persist()
-
 
                 # attributes
                 setattr(self, 'store', save)
@@ -815,10 +741,10 @@ class Arsenic(irc.IRCClient):
                 ##### Hijack config object functions to reduce scope
 
                 def __config_get__(item, default=False):  # stubs, basically
-                    return config_get(mod_declare_privmsg[command], item, default)
+                    return config.get(mod_declare_privmsg[command], item, default)
 
                 def __config_set__(item, value):
-                    return config_set(mod_declare_privmsg[command], item, value)
+                    return config.set(mod_declare_privmsg[command], item, value)
 
                 def __config_remove__(item):
                     return config_remove(mod_declare_privmsg[command], item)
@@ -826,6 +752,11 @@ class Arsenic(irc.IRCClient):
                 setattr(self, 'config_get', __config_get__)
                 setattr(self, 'config_set', __config_set__)
                 setattr(self, 'config_remove', __config_remove__)
+
+                def __nest_cache_save__(self):  # Nested cache save, yolo?
+                    return self.__cache_save__(mod_declare_privmsg[command])
+
+                setattr(self, 'cache_save', __nest_cache_save__)
 
             log_data = "Command: %s, user: %s, channel: %s, data: %s" % (
                 command, user, channel, msg)
@@ -880,13 +811,13 @@ class Arsenic(irc.IRCClient):
                         mod = msg.split(' ')[1]
                         url = msg.split(' ')[2]
                         req = urllib.request.Request(
-                            url, headers={'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC'})
+                                url, headers={'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC'})
 
                         fd = urllib.request.urlopen(req)
                         mod_src = open(
-                            config_dir + '/modules/' + mod + '.py', 'w')
+                                config_dir + '/modules/' + mod + '.py', 'w')
 
-                        data = fd.read().decode('UTF-8')
+                        data = fd.read()
                         mod_src.write(data)
                         os.fsync(mod_src)
 
@@ -898,7 +829,7 @@ class Arsenic(irc.IRCClient):
 
                         mod_src = open(config_dir + '/modules/' + mod + '.py')
                         mod_bytecode = compile(
-                            mod_src.read(), '<string>', 'exec')
+                                mod_src.read(), '<string>', 'exec')
                         mod_src.close()
 
                         modlook[mod] = imp.new_module(mod)
@@ -926,12 +857,12 @@ class Arsenic(irc.IRCClient):
                         except:
                             url = 'https://raw.githubusercontent.com/KittyHawkIRC/core/master/arsenic.py'
                         req = urllib.request.Request(
-                            url, headers={'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC'})
+                                url, headers={'User-Agent': 'UNIX:KittyHawk http://github.com/KittyHawkIRC'})
 
                         fd = urllib.request.urlopen(req)
                         mod_src = open(sys.argv[0], 'w')
 
-                        data = fd.read().decode('UTF-8')
+                        data = fd.read()
                         mod_src.write(data)
                         os.fsync(mod_src)
 
@@ -953,22 +884,17 @@ class Arsenic(irc.IRCClient):
                             self.msg(u, 'Syntax error!')
 
                     elif command == 'update_patch':
+                        self.msg(u, 'Starting patch')
+                        log.msg('Starting runtime patching!')
                         mod_src = open(sys.argv[0])
                         mod_bytecode = compile(
-                            mod_src.read(), '<string>', 'exec')
+                                mod_src.read(), '<string>', 'exec')
                         mod_src.close()
 
-                        update = imp.new_module('update')
-                        exec (mod_bytecode, update.__dict__)
-
-                        old = self
-                        self.__class__ = update.Arsenic
-                        self = update.Arsenic(self, irc.IRCClient)
-
-                        setattr(self, 'IRCClient', irc.IRCClient)
-                        setattr(self, 'err', self)
-
-                        self.msg(u, 'Attempted runtime patching (%s)' % VER)
+                        self.msg(u, 'Bytecode compiled, starting runtime patch')
+                        log.msg('Arsenic bytecode compiled, attempting patching')
+                        runtime_patch(mod_bytecode)
+                        self.msg(u, 'KittyHawk updated to VER %s' % VER)
 
                     elif command == 'inject':
                         self.lineReceived(msg.split(' ', 1)[1])
@@ -980,7 +906,7 @@ class Arsenic(irc.IRCClient):
                         opts = msg.split()
                         module = opts[1]
                         item = opts[2]
-                        self.msg(u, str(config_get(module, item, False)))
+                        self.msg(u, str(config.get(module, item, False)))
 
                     elif command == 'config_set':
                         opts = msg.split()
@@ -992,7 +918,7 @@ class Arsenic(irc.IRCClient):
                         for i in value_list:
                             value += i + ' '
 
-                        self.msg(u, str(config_set(module, item, value[:len(value) - 1])))
+                        self.msg(u, str(config.set(module, item, value[:len(value) - 1])))
 
                     elif command == 'config_remove':
                         opts = msg.split()
@@ -1046,32 +972,33 @@ class Arsenic(irc.IRCClient):
                     elif command == 'help_config':
                         self.msg(u, 'KittyHawk Ver: %s' % VER)
                         self.msg(u, 'Config commands: (note: owner only)')
-                        self.msg(u, 'config_set {module} {item} {value} (Sets a value for a module)')
-                        self.msg(u, 'config_get {module} {item} (Returns a value)')
+                        self.msg(u, 'config.set {module} {item} {value} (Sets a value for a module)')
+                        self.msg(u, 'config.get {module} {item} (Returns a value)')
                         self.msg(u, 'config_remove {module} {item} (Removes a value)')
                         self.msg(u, 'config_list {module} (Lists all items for a module)')
 
                     elif command == 'help_sysop':
                         self.msg(u, 'KittyHawk Ver: %s' % VER)
                         self.msg(
-                            u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
+                                u, "DO NOT USE THESE UNLESS YOU KNOW WHAT YOU'RE DOING")
                         self.msg(u, 'SysOP commands:')
                         self.msg(
-                            u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
+                                u, 'op {hostmask}, deop {hostmask}  (add or remove a user)')
                         self.msg(
-                            u, 'restart,  (Restarts)')
+                                u, 'restart,  (Restarts)')
                         self.msg(
-                            u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
+                                u, 'mod_load {module}, mod_reload {module} (Load or reload a loaded module)')
                         self.msg(
-                            u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
+                                u, 'mod_inject {module} {url} (Download a module over the internet. (is not loaded))')
                         self.msg(
-                            u, 'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
+                                u,
+                                'raw {line}, inject {line} (raw sends a raw line, inject assumes we recieved a line)')
                         self.msg(
-                            u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
+                                u, 'update_restart, update_patch (Updates by restarting or patching the runtime)')
                         self.msg(
-                            u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
+                                u, 'update_inject {optional:url} Downloads latest copy over the internet, not updated')
                         self.msg(
-                            u, 'sync {channel1} {channel2}, unsync {channel1}')
+                                u, 'sync {channel1} {channel2}, unsync {channel1}')
                         self.msg(u, 'sync_list, msg {channel} {message}')
                         self.msg(u, 'cache_save, cache_load, cache_status')
 
@@ -1081,37 +1008,37 @@ class Arsenic(irc.IRCClient):
                         cmd = msg.split(' ', 2)[1].lower()
                         data = msg.split(' ', 2)[2]
                         conn.execute(
-                            ('insert or replace into command(name, response) '
-                             'values (?, ?)'), (cmd.decode('utf-8'), data.decode('utf-8')))
+                                ('insert or replace into command(name, response) '
+                                 'values (?, ?)'), (cmd, data))
                         conn.commit()
 
                         if data.startswith('!'):
                             data = encoder.decode(data)
                         self.msg(
-                            user.split(
-                                '!', 1)[0], 'Added the command %s with value %s' %
-                                            (cmd, data))
+                                user.split(
+                                        '!', 1)[0], 'Added the command %s with value %s' %
+                                                    (cmd, data))
 
                     elif command == 'del':
 
                         cmd = msg.split(' ')[1].lower()
 
                         conn.execute('DELETE FROM command WHERE name = ?',
-                                     (cmd.decode('utf-8'),))
+                                     (cmd,))
                         conn.commit()
 
                         self.msg(
-                            user.split(
-                                '!',
-                                1)[0],
-                            'Removed command %s' %
-                            cmd)
+                                user.split(
+                                        '!',
+                                        1)[0],
+                                'Removed command %s' %
+                                cmd)
 
                     elif msg == 'help':
                         self.msg(u, 'KittyHawk Ver: %s' % VER)
                         self.msg(u, 'Howdy, %s, you silly operator.' % u)
                         self.msg(
-                            u, 'You have access to the following commands:')
+                                u, 'You have access to the following commands:')
                         self.msg(u, 'add {command} {value}, del {command}')
                         self.msg(u, 'join {channel}, leave {channel}')
                         self.msg(u, 'nick {nickname}, topic {channel} {topic}')
@@ -1170,6 +1097,7 @@ class Arsenic(irc.IRCClient):
                     if self.profile.trusted:
                         try:
                             old_pw = msg.split(' ')[1]
+
                             new_pw = msg.split(' ')[2]
                         except:
                             self.msg(u, 'Please message me your old then new password after change_password.')
@@ -1209,7 +1137,7 @@ class Arsenic(irc.IRCClient):
                     modlook[
                         mod_declare_privmsg[
                             command]].callback(
-                        self)
+                            self)
 
             elif msg.startswith(key):
 
@@ -1217,19 +1145,19 @@ class Arsenic(irc.IRCClient):
                     modlook[
                         mod_declare_privmsg[
                             command]].callback(
-                        self)
-                    self.cache_save(mod_declare_privmsg[command])  # Save the cache only when a module is called
+                            self)
+                    self.__cache_save__(mod_declare_privmsg[command])  # Save the cache only when a module is called
 
                 elif msg.startswith(key + 'help'):
 
                     self.msg(
-                        u, 'Howdy, %s, please visit https://commands.tox.im to view the commands.' % u)
+                            u, 'Howdy, %s, please visit https://commands.tox.im to view the commands.' % u)
                     self.msg(u,
                              'You can also manage your profile with set_password {pw}, change_password {old pw} {new pw}, or link a new name to a profile with link {username} {pw}')
 
                 else:
                     c = conn.execute(
-                        'SELECT response FROM command WHERE name == ?', (command,))
+                            'SELECT response FROM command WHERE name == ?', (command,))
 
                     r = c.fetchone()
                     if r is not None:
@@ -1262,8 +1190,6 @@ class Arsenic(irc.IRCClient):
         command = ''
         victim = ''
 
-        line = line.decode('UTF-8')  # force bytes to str
-
         raw_line = line
         # :coup_de_shitlord!~coup_de_s@fph.commiehunter.coup PRIVMSG #FatPeopleHate :the raw output is a bit odd though
         line = line.split(' ')
@@ -1279,28 +1205,35 @@ class Arsenic(irc.IRCClient):
                     if line[2].startswith('#'):  # PRIVMSG or NOTICE in channel
                         channel = line[2]
 
-                        if command == 'KICK':  # It's syntax is normalized for :rd
+                        if command == 'KICK':  # It's syntax is normalized for :
                             victim = line[3]
                             data = raw_line.split(' ', 4)[4].split(':', 1)[1]
 
                         elif command == 'MODE':
-                            victim = line[4]
-                            data = line[3]
+                            if len(line) == 4:  # Channel modes
+                                victim = line[2]
+                                data = line[3]
+                            else:
+                                victim = line[4]
+                                data = line[3]
 
                         elif command == 'PART':
                             if len(line) == 4:  # Implies part message
                                 data = raw_line.split(
-                                    ' ', 3)[3].split(':', 1)[1]
+                                        ' ', 3)[3].split(':', 1)[1]
                             else:
                                 data = ''
 
                         else:
-                            if line[3] == ':ACTION':  # /me, act like normal message
-                                data = raw_line.split(
-                                    ' ', 4)[4].split(':', 1)[1]
-                            else:
-                                data = raw_line.split(
-                                    ' ', 3)[3].split(':', 1)[1]
+                            try:
+                                if line[3] == ':ACTION':  # /me, act like normal message
+                                    data = raw_line.split(
+                                            ' ', 4)[4].split(':', 1)[1]
+                                else:
+                                    data = raw_line.split(
+                                            ' ', 3)[3].split(':', 1)[1]
+                            except:
+                                pass
 
                     elif line[2].startswith(':#'):  # JOIN/KICK/ETC
                         channel = line[2].split(':', 1)[1]
@@ -1319,7 +1252,7 @@ class Arsenic(irc.IRCClient):
 
             if not command.isdigit():
 
-                if command == 'NOTICE' and 'connected' in data.lower() and isconnected == False:
+                if ('connected' in data.lower() or '+z' in data.lower()) and isconnected == False:
                     # DIRTY FUCKING HACK
                     # 100% UNSAFE. DO NOT USE THIS IN PRODUCTION
                     # Proposed fixes: No idea,
@@ -1328,6 +1261,7 @@ class Arsenic(irc.IRCClient):
                     self.connectionMade()
                     self.signedOn()
                     isconnected = True  # dirter hack, makes sure this only runs once
+                    log.msg("Connected to server!")
 
                 if command == 'PING':
                     self.sendLine('PONG ' + server)
@@ -1338,28 +1272,12 @@ class Arsenic(irc.IRCClient):
                 elif command == 'JOIN':
                     user = user.split('!', 1)[0]
                     self.userJoined(user, channel)
-                    channel_user[channel.lower()] = [user.strip('~%@+&')]
 
                 elif command == 'PART':
                     user = user.split('!', 1)[0]
 
-                    if channel.lower() in channel_user:
-                        if user in channel_user[channel.lower()]:
-                            channel_user[channel.lower()].remove(user)
-                        else:
-                            log.err(
-                                "Warning: Tried to remove unknown user. (%s)" % user)
-
-                    else:
-                        log.err("Warning: Tried to remove user from unknown channel. (%s, %s)" % (
-                            channel.lower(), user))
-
                 elif command == 'QUIT':
                     user = user.split('!', 1)[0]
-
-                    for i in channel_user:
-                        if user in channel_user[i]:
-                            channel_user[i].remove(user)
 
                 elif command == 'KICK':
                     # checks if we got kicked
@@ -1378,19 +1296,15 @@ class Arsenic(irc.IRCClient):
                     channel = line[4].lower()
                     raw_user = raw_line.split(' ', 5)[5].split(':', 1)[1]
 
-                if channel not in channel_user:
-                    channel_user[channel] = [self.nickname]
+            elif line[1] == '001':
+                self.hostname = line[0]
+                self._registered = True
+                self.nickname = self._attemptedNick
+                self.startHeartbeat()
 
-                for i in raw_user.split(' '):
-
-                    if i not in channel_user[channel]:
-                        channel_user[channel].append(i.strip('~%@+&'))
-
-        #else:
-        except Exception as err:
-            log.err("Exception: %s" % err)
-            log.err("Error: %s, LN: %s" %
-                    (raw_line, sys.exc_info()[-1].tb_lineno))
+        # else:
+        except:
+            log.err()
 
 
 class ArsenicFactory(protocol.ClientFactory):
@@ -1417,7 +1331,123 @@ class ArsenicFactory(protocol.ClientFactory):
         reactor.stop()
 
 
+def runtime_patch(bytecode):
+    global VER
+    for i, object in enumerate(bytecode.co_consts):
+        if type(object) == types.CodeType:
+            log.msg('[%s] Attempting' % (object.co_name))
+            exec ('%s.__code__ = object' % (object.co_name))
+            log.msg('[%s] Runtime patched!' % (object.co_name))
+
+    if 'RTP' in VER:
+        VER = VER.split('_RTP', 1)[0]
+    VER = '%s_RTP(%s)' % (VER, time.strftime("%Y%m%d-%H%M"))
+    log.msg('Version modifed to %s' % (VER))
+
+
 if __name__ == '__main__':
+
+    debug = config.getboolean('main', 'debug')
+
+    if debug:
+        file_log = 'stdout'
+        log.startLogging(sys.stdout)
+    else:
+        log_path = os.path.join(config_dir, 'logs')
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+            log.msg("Notice: Created a log directory")
+
+        file_log = log_path + '/' + time.strftime("%Y_%m_%d-%H_%M_%S") + '.log'
+        log.startLogging(open(file_log, 'w'))
+
+    log.msg("KittyHawk %s, log: %s" % (VER, file_log))
+
+    hostname = config.get('network', 'hostname')
+    if not hostname:
+        log.err("Unable to read hostname")
+        raise SystemExit(1)
+
+    port = config.getint('network', 'port')
+    if not port:
+        log.err("Unable to read port")
+        raise SystemExit(2)
+
+    oplist = config.get('main', 'op')
+    if oplist:
+        oplist = oplist.replace(' ', '').split(',')
+        for user in oplist:
+            if user.startswith('!'):
+                oplist.remove(user)
+                oplist.add(encoder.decode(user))
+
+    else:
+        log.err('Unable to read ops, assuming none')
+        oplist = []
+
+    ownerlist = oplist
+    modlook = {}
+
+    modules = config.get('main', 'mod').replace(' ', '').split(',')
+
+    if not modules:
+        log.err('Unable to read modules, assuming none')
+        modules = []
+
+    updateconfig = config.getboolean('main', 'updateconfig')
+
+    if not updateconfig:
+        cfile.close()  # Close this if we don't need it later
+
+    salt = config.get('main', 'salt')
+
+    if not salt:
+        salt = uuid.uuid4().hex
+        config.set('main', 'salt', salt)
+        log.msg("Notice: a new salt was generated")
+
+    mod_declare_privmsg = {}
+    mod_declare_userjoin = {}
+    mod_declare_syncmsg = {}
+
+    sync_channels = {}
+
+    __sync_channel__ = config.get('main', 'sync_channel')
+
+    if __sync_channel__:
+        for lists in __sync_channel__.split(','):
+            items = lists.split('>')
+            sync_channels[items[0]] = items[1]
+
+    key = config.get('main', 'command_key', '^')
+
+    isconnected = False
+
+    irc_relay = config.get('main', 'log', '')
+
+    if irc_relay == '':
+        log.msg("no relay log channel")
+
+    db_name = os.path.join(config_dir, config.get('main', 'db'))
+
+    if not db_name:
+        db_name = ""
+
+    cache_name = config.get('main', 'cache', '.cache')
+
+    cache_name = os.path.join(config_dir, cache_name)
+
+    cache_state = 1
+
+    if debug:
+        log.msg("Using cache: " + cache_name)
+
+    cache_fd = dbm.open(cache_name, 'c')
+
+    if os.path.isfile(db_name) is False:
+        log.err("No database found!")
+        raise SystemExit(3)
+
     conn = sqlite3.connect(db_name)
 
     for mod in modules:
@@ -1444,13 +1474,13 @@ if __name__ == '__main__':
                 mod_declare_syncmsg[i] = mod
 
     try:
-        channel_list = config_get(
-            'main', 'channel').replace(' ', '').split(',')
+        channel_list = config.get(
+                'main', 'channel').replace(' ', '').split(',')
 
-        f = ArsenicFactory(conn, channel_list[0], config_get('main', 'name'),
-                           config_get('main', 'password'))
+        f = ArsenicFactory(conn, channel_list[0], config.get('main', 'name'),
+                           config.get('main', 'password'))
     except IndexError:
-        raise SystemExit(0)
+        raise SystemExit(4)
 
     reactor.connectSSL(hostname, port, f, ssl.ClientContextFactory())
 
