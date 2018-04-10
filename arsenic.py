@@ -47,16 +47,21 @@ class conf(Exception):
 
 if len(sys.argv) == 2:
     if sys.argv[1].startswith('--config='):
-        config_dir = sys.argv[1].split('=', 1)[1]
-        if config_dir == '':
+        config_dir_tmp = sys.argv[1].split('=', 1)[1]
+        if config_dir_tmp == '':
             raise conf('No path specified')
         else:
-            if not os.path.isdir(config_dir):
+            if not os.path.isdir(config_dir_tmp):
                 raise conf('config path not found')
 else:
-    raise SystemExit(1)
-    raise conf(
-            'arsenic takes a single argument, --config=/path/to/config/dir')
+    if __name__ == '__main__':  # testing check
+        raise SystemExit(1)
+        raise conf(
+                'arsenic takes a single argument, --config=/path/to/config/dir')
+    else:
+        config_dir_tmp = '.'
+
+config_dir = config_dir_tmp  # Unit testing workaround
 
 
 class configManager(ConfigParser.ConfigParser):
@@ -96,7 +101,10 @@ class configManager(ConfigParser.ConfigParser):
             return False
 
 
-config = configManager(open(os.path.join(config_dir, 'kgb.conf'), 'r+b'))
+if __name__ == '__main__':  # unit testing support
+    config = configManager(open(os.path.join(config_dir, 'kgb.conf'), 'r+b'))
+else:
+    config = configManager(open(os.path.join('.', 'kgb.conf'), 'r+b'))
 
 
 class Profile:
@@ -499,12 +507,40 @@ def checkowner(user):
 class Arsenic(irc.IRCClient):
     """Twisted callbacks registered here"""
 
-    def __init__(self, profileManager, cache_fd, extra=False):
+    def __init__(self, profileManager, cache_fd, extra=False, unittest=False):
         self.profileManager = profileManager
         self.__extra__ = extra
+        self.unittest = unittest
         self.cache_fd = cache_fd
         if extra:
             self.msg = extra.msg
+
+        if unittest:
+            log.msg("##################   [RUNNING IN TEST MODE] ####################")
+
+            global key  # unit testing hacks
+            global ownerlist
+            global mod_declare_privmsg
+            global mod_declare_userjoin
+            global mod_declare_syncmsg
+            global modlook
+            global irc_relay
+            global channel_list
+            global updateconfig
+            global config_dir
+
+            key = unittest.key
+            ownerlist = unittest.ownerlist
+            mod_declare_privmsg = unittest.mod_declare_privmsg
+            mod_declare_userjoin = unittest.mod_declare_userjoin
+            mod_declare_syncmsg = unittest.mod_declare_syncmsg
+            modlook = unittest.modlook
+            irc_relay = ""
+            channel_list = unittest.channel_list
+            updateconfig = unittest.updateconfig
+            config_dir = '.'
+
+            irc.IRCClient = unittest
 
         return
 
@@ -552,6 +588,9 @@ class Arsenic(irc.IRCClient):
                 save()
         irc.IRCClient.join(self, channel)
 
+    def sendLine(self, line):
+        irc.IRCClient.sendLine(self, line)
+
     def leave(self, channel):  # hijacks superclass leave
         if channel in channel_list:
             channel_list.remove(channel)
@@ -575,8 +614,9 @@ class Arsenic(irc.IRCClient):
 
     def __cache_save__(self, item):  # save 1 item to reduce overhead
 
-        self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
-        self.cache_reopen()
+        if not self.unittest:
+            self.cache_fd[item] = pickle.dumps(self.lockerbox[item])
+            self.cache_reopen()
 
         return True
 
@@ -856,7 +896,7 @@ class Arsenic(irc.IRCClient):
                         mod_bytecode = compile(
                                 mod_src.read().replace(u"\u2018", "").replace(u"\u2019", "").replace(u"\u201c",
                                                                                                      "").replace(
-                                    u"\u201d", ""), '<string>', 'exec')
+                                        u"\u201d", ""), '<string>', 'exec')
                         mod_src.close()
 
                         modlook[mod] = imp.new_module(mod)
@@ -1488,8 +1528,9 @@ if __name__ == '__main__':
     for mod in modules:
         mod_src = open(config_dir + '/modules/' + mod + '.py')
         mod_bytecode = compile(
-            mod_src.read().replace(u"\u2018", "").replace(u"\u2019", "").replace(u"\u201c", "").replace(u"\u201d", ""),
-            '<string>', 'exec')
+                mod_src.read().replace(u"\u2018", "").replace(u"\u2019", "").replace(u"\u201c", "").replace(u"\u201d",
+                                                                                                            ""),
+                '<string>', 'exec')
         mod_src.close()
 
         modlook[mod] = imp.new_module(mod)
