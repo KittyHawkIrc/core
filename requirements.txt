@@ -1,4 +1,4 @@
-pyopenssl==17.5.0
+pyopenssl==18.0.0
 pysqlite==2.8.3
 service_identity==17.0.0
 twisted==18.4.0
