@@ -2,6 +2,6 @@ pyopenssl==18.0.0
 pysqlite==2.8.3
 service_identity==17.0.0
 twisted==18.4.0
-dill==0.2.7.1
+dill==0.2.8
 Pint==0.8.1
 unidecode==1.0.22
