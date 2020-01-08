@@ -3,5 +3,5 @@ pysqlite==2.8.3
 service-identity==18.1.0
 twisted==19.10.0
 dill==0.3.1.1
-Pint==0.10
+Pint==0.10.1
 unidecode==1.1.1
