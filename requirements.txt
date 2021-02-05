@@ -4,4 +4,4 @@ service-identity==18.1.0
 twisted==20.3.0
 dill==0.3.3
 Pint==0.16.1
-unidecode==1.1.2
+unidecode==1.2.0
