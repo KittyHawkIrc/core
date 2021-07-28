@@ -1,7 +1,7 @@
 pyopenssl==20.0.1
 pysqlite==2.8.3
 service-identity==21.1.0
-twisted==21.2.0
+twisted==21.7.0
 dill==0.3.4
 Pint==0.17
 unidecode==1.2.0
